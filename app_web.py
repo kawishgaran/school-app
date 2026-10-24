@@ -54,7 +54,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== مقداردهی اولیه دیتابیس (صددرصد کامل) ====================
+# ==================== مقداردهی اولیه دیتابیس ====================
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -236,22 +236,7 @@ def init_db():
 
 init_db()
 
-# ==================== توابع تنظیمات و محاسبات دقیق ====================
-def get_setting(key, default=""):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
-    row = cursor.fetchone()
-    conn.close()
-    return row[0] if row else default
-
-def set_setting(key, value):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
-    conn.commit()
-    conn.close()
-
+# ==================== توابع محاسباتی ====================
 def parse_shamsi_date(date_str):
     try:
         clean_str = str(date_str).replace('-', '/').strip()
@@ -347,7 +332,7 @@ def get_student_financial_summary(student_id):
         "advance_pay": advance_pay
     }
 
-# ==================== احراز هویت (Login) ====================
+# ==================== احراز هویت ====================
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_name = ""
@@ -400,17 +385,17 @@ else:
 
     conn = sqlite3.connect(DB_FILE)
 
-    # ==================== ۱. داشبورد مدیریتی (با بک‌آپ و تنظیم تراز) ====================
+    # ==================== ۱. داشبورد مدیریتی ====================
     if menu == "📊 داشبورد مدیریتی":
         st.title("📊 داشبورد مدیریتی مکتب خصوصی کاوشگران دانش بلخ")
         
         col_b1, col_b2 = st.columns([1, 3])
         with col_b1:
-            if st.button("💾 پشتیبان‌گیری (بک‌آپ) دیتابیس"):
+            if st.button("💾 پشتیبان‌گیری دیتابیس"):
                 try:
                     backup_name = f"school_finance_backup_{jdatetime.date.today().strftime('%Y%m%d_%H%M%S')}.db"
                     shutil.copy(DB_FILE, backup_name)
-                    st.success(f"فایل پشتیبان با موفقیت ذخیره شد: {backup_name}")
+                    st.success(f"فایل پشتیبان ذخیره شد: {backup_name}")
                 except Exception as e:
                     st.error(f"خطا در ایجاد پشتیبان: {e}")
 
@@ -729,11 +714,11 @@ else:
         if ex_rows:
             st.dataframe(pd.DataFrame(ex_rows, columns=["تاریخ", "دسته‌بندی", "مبلغ", "تشریحات", "کاربر"]), use_container_width=True)
 
-    # ==================== ۷. جستجو و پرونده شاگردان ====================
+    # ==================== ۷. جستجو و پرونده شاگردان (اصلاح‌شده) ====================
     elif menu == "🔍 جستجو و پرونده شاگردان":
         st.title("🔍 جستجو و مشاهده پرونده کامل شاگردان")
         
-        search_q = st.text_input("جستجو بر اساس نام شاگرد یا شماره آی‌دی:")
+        search_q = st.text_input("جستجو بر اساس نام شاگرد یا شماره آی‌دی:", value="")
         cursor.execute("SELECT student_id, student_no, full_name, father_name, class_name FROM students WHERE full_name LIKE ? OR student_no LIKE ?", (f"%{search_q}%", f"%{search_q}%"))
         found_students = cursor.fetchall()
 
@@ -857,11 +842,11 @@ else:
         elif "مصارف مکتب" in rep_choice:
             cursor.execute("SELECT date, category, amount, description, user_name FROM cashbox WHERE type='Outflow'")
             rows = cursor.fetchall()
-            st.dataframe(pd.DataFrame(rows, columns=["تاریخ", "دسته‌بندی", "مبلغ", "توضیحات", "کاربر"]), use_container_width=True)
+            st.dataframe(pd.DataFrame(rows, columns=["تاریخ", "دسته‌بندی", "مبلغ", "تشریحات", "کاربر"]), use_container_width=True)
         elif "درآمدها" in rep_choice:
             cursor.execute("SELECT date, category, amount, description, user_name FROM cashbox WHERE type='Inflow'")
             rows = cursor.fetchall()
-            st.dataframe(pd.DataFrame(rows, columns=["تاریخ", "نوع درآمد", "مبلغ", "توضیحات", "کاربر"]), use_container_width=True)
+            st.dataframe(pd.DataFrame(rows, columns=["تاریخ", "نوع درآمد", "مبلغ", "تشریحات", "کاربر"]), use_container_width=True)
 
     # ==================== ۹. مدیریت صندوق ====================
     elif menu == "💰 مدیریت صندوق":
@@ -869,7 +854,7 @@ else:
         cursor.execute("SELECT date, type, category, amount, description, user_name FROM cashbox")
         rows = cursor.fetchall()
         if rows:
-            st.dataframe(pd.DataFrame(rows, columns=["تاریخ", "نوع", "دسته‌بندی", "مبلغ", "توضیحات", "کاربر"]), use_container_width=True)
+            st.dataframe(pd.DataFrame(rows, columns=["تاریخ", "نوع", "دسته‌بندی", "مبلغ", "تشریحات", "کاربر"]), use_container_width=True)
 
     # ==================== ۱۰. کاربران سیستم ====================
     elif menu == "👥 کاربران سیستم":
