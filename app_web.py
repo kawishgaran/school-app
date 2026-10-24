@@ -31,26 +31,21 @@ st.markdown("""
     .main-header {
         background: linear-gradient(135deg, #0f172a, #1e293b);
         color: white;
-        padding: 30px;
+        padding: 25px;
         border-radius: 12px;
         margin-bottom: 25px;
         text-align: center;
     }
 
-    .nav-card {
+    /* باکس بزرگ جستجو مشابه گوگل */
+    .google-search-box {
         background-color: #ffffff;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
+        padding: 30px;
+        border-radius: 20px;
+        box-shadow: 0px 8px 25px rgba(0,0,0,0.08);
         border: 1px solid #e2e8f0;
+        margin-bottom: 30px;
         text-align: center;
-        margin-bottom: 15px;
-        transition: transform 0.2s;
-    }
-    
-    .nav-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0px 6px 18px rgba(0,0,0,0.08);
     }
 
     .stButton>button {
@@ -376,10 +371,11 @@ else:
     st.sidebar.markdown(f"👤 کاربر فعال: **{st.session_state.user_name}** ({st.session_state.user_role})")
     
     if 'current_page' not in st.session_state:
-        st.session_state.current_page = "📊 داشبورد"
+        st.session_state.current_page = "🏠 صفحه اصلی"
 
     menu_options = [
-        "📊 داشبورد", 
+        "🏠 صفحه اصلی", 
+        "📊 داشبورد آمار و صندوق",
         "➕ ثبت‌نام جدید", 
         "📝 حاضری شاگردان", 
         "⭐ ارزیابی شاگردان", 
@@ -405,16 +401,167 @@ else:
 
     conn = sqlite3.connect(DB_FILE)
 
-    # ==================== ۱. داشبورد (صفحه اصلی با دسترسی سریع به تمام بخش‌ها) ====================
-    if menu == "📊 داشبورد":
+    # ==================== ۱. صفحه اصلی (با باکس بزرگ جستجوی گوگل و دسترسی سریع) ====================
+    if menu == "🏠 صفحه اصلی":
         st.markdown("""
         <div class="main-header">
             <h2>🏫 مکتب خصوصی کاوشگران دانش بلخ</h2>
-            <p>سیستم جامع مدیریت مالی، اداری و گزارش‌دهی آنلاین</p>
+            <p>سامانه جامع جستجوی پرونده شاگردان و مدیریت آنلاین مکتب</p>
         </div>
         """, unsafe_allow_html=True)
 
+        # باکس بزرگ جستجو مشابه گوگل در بین صفحه
+        st.markdown('<div class="google-search-box">', unsafe_allow_html=True)
+        st.markdown("### 🔍 جستجوی سریع پرونده دانش‌آموز")
+        st.write("نام کامل یا شماره آی‌دی شاگرد را در باکس زیر جستجو کنید:")
+        
+        search_query = st.text_input("🔍 جستجوی شاگرد...", placeholder="مثلاً: احمد یا 1001", key="google_search_input")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # نمایش نتایج جستجو مستقیماً در صفحه اصلی
+        if search_query.strip():
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT student_id, student_no, full_name, father_name, grandfather_name, class_name, standard_fee, is_free, 
+                       uses_transport, transport_fee, father_phone, registration_date
+                FROM students WHERE full_name LIKE ? OR student_no LIKE ?
+            ''', (f"%{search_query.strip()}%", f"%{search_query.strip()}%"))
+            students = cursor.fetchall()
+
+            if students:
+                st.subheader(f"🔍 نتایج جستجو برای: «{search_query}»")
+                for st_row in students:
+                    s_id, no, name, father, gfather, cls, fee, is_free, uses_t, t_fee, fphone, reg_date = st_row
+                    summary = get_student_financial_summary(s_id)
+                    if not summary:
+                        continue
+
+                    title_text = f"🎓 {name} {'(معاف/رایگان)' if is_free == 1 else ''} | صنف: {cls} | آی‌دی: {no} | باقی‌داری کل: {summary['net_debt']:,.2f} افغانی"
+                    
+                    with st.expander(title_text, expanded=True):
+                        st.markdown(f"""
+                        * **نام پدر (پدرکلان):** {father} ({gfather}) | **تلفن پدر:** {fphone} | **تاریخ ثبت‌نام:** {reg_date}
+                        * **فیس ماهانه:** {summary['monthly_fee']:,.2f} افغانی | **ماه‌های فعال:** {summary['active_months']} ماه
+                        * **ریز بدهی‌ها:** [قبلی: {summary['previous_debt']:,.2f}] | [شهریه: {summary['calc_tuition']:,.2f}] | [ترانسپورت: {summary['calc_transport']:,.2f}] | [کتاب: {summary['books_debt']:,.2f}] | [لباس: {summary['uniform_debt']:,.2f}]
+                        * **مجموع کل پرداختی‌ها:** {summary['total_paid']:,.2f} افغانی | **پیش‌پرداخت/بستانکاری:** {summary['advance_pay']:,.2f} افغانی
+                        """)
+
+                        tab_pay, tab_break, tab_att, tab_eval, tab_edit = st.tabs(["💳 دریافت فیس", "📌 عدم حضور (Break)", "📊 حضور و غیاب", "⭐ سوابق ارزیابی", "✏️ ویرایش شاگرد"])
+
+                        with tab_pay:
+                            with st.form(f"pay_form_main_{s_id}"):
+                                fee_type = st.selectbox("نوع فیس / بدهی", ["شهریه ماه جاری", "باقی‌داری قبلی", "ترانسپورت", "کتاب", "لباس", "پیش‌پرداخت / بستانکاری"], key=f"ft_m_{s_id}")
+                                p_amt = st.number_input("مبلغ پرداختی (افغانی)", min_value=0.0, key=f"pa_m_{s_id}")
+                                p_date = st.text_input("تاریخ", value=jdatetime.date.today().strftime("%Y/%m/%d"), key=f"pd_m_{s_id}")
+                                p_desc = st.text_input("توضیحات اختیاری", key=f"pdes_m_{s_id}")
+                                if st.form_submit_button("ثبت پرداخت و دریافت وجه"):
+                                    if p_amt > 0:
+                                        cursor.execute("INSERT INTO student_payments (student_id, date, trans_type, fee_type, amount, description, user_name) VALUES (?, ?, 'دریافت وجه', ?, ?, ?, ?)",
+                                                       (s_id, p_date, fee_type, p_amt, p_desc, st.session_state.user_name))
+                                        cursor.execute("INSERT INTO cashbox (date, type, category, amount, description, user_name) VALUES (?, 'Inflow', ?, ?, ?, ?)",
+                                                       (p_date, f"دریافت {fee_type}", p_amt, f"پرداخت شاگرد ID:{s_id}\n{p_desc}", st.session_state.user_name))
+                                        conn.commit()
+                                        st.success("تراکنش ثبت گردید.")
+                                        st.rerun()
+
+                            cursor.execute("SELECT payment_id, date, trans_type, fee_type, amount, description, user_name FROM student_payments WHERE student_id = ?", (s_id,))
+                            p_rows = cursor.fetchall()
+                            if p_rows:
+                                df_p = pd.DataFrame(p_rows, columns=["شناسه", "تاریخ", "نوع تراکنش", "نوع فیس", "مبلغ", "توضیحات", "کاربر"])
+                                st.dataframe(df_p, use_container_width=True)
+
+                        with tab_break:
+                            with st.form(f"break_form_main_{s_id}"):
+                                b_start = st.text_input("از تاریخ/ماه", key=f"bs_m_{s_id}")
+                                b_end = st.text_input("تا تاریخ/ماه", key=f"be_m_{s_id}")
+                                b_reason = st.text_input("دلیل مرخصی", key=f"br_m_{s_id}")
+                                if st.form_submit_button("➕ ثبت مرخصی / Break"):
+                                    if b_start and b_end:
+                                        cursor.execute("INSERT INTO student_breaks (student_id, start_month, end_month, reason) VALUES (?, ?, ?, ?)",
+                                                       (s_id, b_start, b_end, b_reason))
+                                        conn.commit()
+                                        st.success("دوره عدم حضور ثبت شد.")
+                                        st.rerun()
+
+                            cursor.execute("SELECT break_id, start_month, end_month, reason FROM student_breaks WHERE student_id = ?", (s_id,))
+                            b_rows = cursor.fetchall()
+                            if b_rows:
+                                df_b = pd.DataFrame(b_rows, columns=["شناسه", "از تاریخ", "تا تاریخ", "دلیل"])
+                                st.dataframe(df_b, use_container_width=True)
+
+                        with tab_att:
+                            cursor.execute("SELECT status, COUNT(*) FROM attendance WHERE student_id = ? GROUP BY status", (s_id,))
+                            att_stats = {r[0]: r[1] for r in cursor.fetchall()}
+                            p_c = sum(v for k, v in att_stats.items() if "حاضر" in k and "غیر" not in k)
+                            a_c = sum(v for k, v in att_stats.items() if "غیرحاضر" in k)
+                            l_c = sum(v for k, v in att_stats.items() if "رخصتی" in k)
+                            st.write(f"✅ **حاضر:** {p_c} روز | ❌ **غیرحاضر:** {a_c} روز | 📌 **رخصتی:** {l_c} روز")
+
+                        with tab_eval:
+                            cursor.execute("SELECT evaluation_id, date, notebook_check, diary_check, dictation, learning_level, homework, other_cases, total_score FROM evaluations WHERE student_id = ? ORDER BY evaluation_id DESC", (s_id,))
+                            df_ev = pd.DataFrame(cursor.fetchall(), columns=["شناسه", "تاریخ", "کتابچه", "دایری", "املا", "یادگیری", "خانگی", "سایر", "مجموع (از ۱۲)"])
+                            st.dataframe(df_ev, use_container_width=True)
+
+                        with tab_edit:
+                            with st.form(f"edit_st_form_main_{s_id}"):
+                                e_no = st.text_input("آی‌دی", value=str(no), key=f"eno_m_{s_id}")
+                                e_name = st.text_input("نام کامل", value=str(name), key=f"ename_m_{s_id}")
+                                e_father = st.text_input("نام پدر", value=str(father), key=f"efather_m_{s_id}")
+                                e_gfather = st.text_input("نام پدرکلان", value=str(gfather), key=f"egfather_m_{s_id}")
+                                e_fee = st.number_input("شهریه ماهانه", value=float(fee), key=f"efee_m_{s_id}")
+                                e_free = st.checkbox("شاگرد رایگان", value=bool(is_free), key=f"efree_m_{s_id}")
+                                e_fphone = st.text_input("تلفن پدر", value=str(fphone), key=f"efp_m_{s_id}")
+                                e_pdebt = st.number_input("باقی‌داری قبلی", value=float(summary['previous_debt']), key=f"epd_m_{s_id}")
+                                e_reg = st.text_input("تاریخ ثبت‌نام", value=str(reg_date), key=f"ereg_m_{s_id}")
+                                
+                                if st.form_submit_button("💾 ذخیره تغییرات مشخصات"):
+                                    is_f_val = 1 if e_free else 0
+                                    fee_val = 0.0 if is_f_val else e_fee
+                                    cursor.execute('''
+                                        UPDATE students SET student_no=?, full_name=?, father_name=?, grandfather_name=?, standard_fee=?, is_free=?, father_phone=?, initial_previous_debt=?, registration_date=?
+                                        WHERE student_id=?
+                                    ''', (e_no, e_name, e_father, e_gfather, fee_val, is_f_val, e_fphone, e_pdebt, e_reg, s_id))
+                                    conn.commit()
+                                    st.success("اطلاعات ویرایش شد.")
+                                    st.rerun()
+            else:
+                st.warning("هیچ پرونده‌ای با این مشخصات یافت نشد.")
+
+        st.markdown("---")
+        st.subheader("🚀 دسترسی سریع به بخش‌های مختلف")
+        r1_c1, r1_c2, r1_c3 = st.columns(3)
+        with r1_c1:
+            if st.button("📊 داشبورد آمار و صندوق"):
+                st.session_state.current_page = "📊 داشبورد آمار و صندوق"
+                st.rerun()
+        with r1_c2:
+            if st.button("➕ ثبت‌نام جدید شاگرد"):
+                st.session_state.current_page = "➕ ثبت‌نام جدید"
+                st.rerun()
+        with r1_c3:
+            if st.button("📝 حاضری شاگردان"):
+                st.session_state.current_page = "📝 حاضری شاگردان"
+                st.rerun()
+
+        r2_c1, r2_c2, r2_c3 = st.columns(3)
+        with r2_c1:
+            if st.button("⭐ ارزیابی شاگردان"):
+                st.session_state.current_page = "⭐ ارزیابی شاگردان"
+                st.rerun()
+        with r2_c2:
+            if st.button("👨‍🏫 پرسنل و استادان"):
+                st.session_state.current_page = "👨‍🏫 پرسنل و استادان"
+                st.rerun()
+        with r2_c3:
+            if st.button("💬 چت آنلاین مدیر و کاربران"):
+                st.session_state.current_page = "💬 چت آنلاین مدیر و کاربران"
+                st.rerun()
+
+    # ==================== ۲. داشبورد آمار و صندوق (انتقال‌یافته به بخش مجزا) ====================
+    elif menu == "📊 داشبورد آمار و صندوق":
+        st.title("📊 داشبورد آمار کلی، مالی و صندوق")
         cursor = conn.cursor()
+        
         cursor.execute("SELECT COUNT(*) FROM students WHERE status='فعال'")
         s_count = cursor.fetchone()[0] or 0
         
@@ -438,52 +585,6 @@ else:
         col3.metric("مجموع باقی‌داری‌ها", f"{total_debts:,.2f} افغانی")
 
         st.markdown("---")
-        st.subheader("🚀 دسترسی سریع به بخش‌های اصلی سیستم")
-        st.write("با کلیک بر روی هر دکمه به بخش مربوطه هدایت شوید:")
-
-        r1_c1, r1_c2, r1_c3 = st.columns(3)
-        with r1_c1:
-            if st.button("➕ ثبت‌نام جدید شاگرد"):
-                st.session_state.current_page = "➕ ثبت‌نام جدید"
-                st.rerun()
-        with r1_c2:
-            if st.button("📝 حاضری شاگردان"):
-                st.session_state.current_page = "📝 حاضری شاگردان"
-                st.rerun()
-        with r1_c3:
-            if st.button("⭐ ارزیابی شاگردان"):
-                st.session_state.current_page = "⭐ ارزیابی شاگردان"
-                st.rerun()
-
-        r2_c1, r2_c2, r2_c3 = st.columns(3)
-        with r2_c1:
-            if st.button("🔍 جستجو و پرونده شاگردان"):
-                st.session_state.current_page = "🔍 جستجو و پرونده شاگردان"
-                st.rerun()
-        with r2_c2:
-            if st.button("👨‍🏫 پرسنل و استادان"):
-                st.session_state.current_page = "👨‍🏫 پرسنل و استادان"
-                st.rerun()
-        with r2_c3:
-            if st.button("💸 ثبت مصارف مکتب"):
-                st.session_state.current_page = "💸 ثبت مصارف مکتب"
-                st.rerun()
-
-        r3_c1, r3_c2, r3_c3 = st.columns(3)
-        with r3_c1:
-            if st.button("📈 گزارش‌گیری پیشرفته"):
-                st.session_state.current_page = "📈 گزارش‌گیری پیشرفته"
-                st.rerun()
-        with r3_c2:
-            if st.button("💰 مدیریت صندوق"):
-                st.session_state.current_page = "💰 مدیریت صندوق"
-                st.rerun()
-        with r3_c3:
-            if st.button("💬 چت آنلاین مدیر و کاربران"):
-                st.session_state.current_page = "💬 چت آنلاین مدیر و کاربران"
-                st.rerun()
-
-        st.markdown("---")
         st.subheader("💵 تنظیم تراز دستی صندوق")
         new_cash_input = st.number_input("مبلغ جدید تراز صندوق (افغانی)", value=float(total_cash))
         if st.button("ثبت و تنظیم تراز"):
@@ -496,7 +597,7 @@ else:
                 st.success("تراز صندوق با موفقیت اصلاح شد.")
                 st.rerun()
 
-    # ==================== ۲. ثبت‌نام جدید ====================
+    # ==================== ۳. ثبت‌نام جدید ====================
     elif menu == "➕ ثبت‌نام جدید":
         st.title("🎓 فرم ثبت نام دانش‌آموز جدید")
         cursor = conn.cursor()
@@ -570,7 +671,7 @@ else:
                         except Exception as e:
                             st.error(f"خطا در ثبت اطلاعات: {e}")
 
-    # ==================== ۳. حاضری شاگردان ====================
+    # ==================== ۴. حاضری شاگردان ====================
     elif menu == "📝 حاضری شاگردان":
         st.title("📋 ثبت حضور و غیاب روزانه شاگردان")
         cursor = conn.cursor()
@@ -613,7 +714,7 @@ else:
         else:
             st.info("هیچ شاگرد فعالی در این صنف یافت نشد.")
 
-    # ==================== ۴. ارزیابی شاگردان ====================
+    # ==================== ۵. ارزیابی شاگردان ====================
     elif menu == "⭐ ارزیابی شاگردان":
         st.title("⭐ سیستم ارزیابی اتوماتیک ماهانه (بدون احتساب جمعه‌ها)")
         eval_date = st.text_input("تاریخ ارزیابی امروز", value=jdatetime.date.today().strftime("%Y/%m/%d"))
@@ -672,7 +773,7 @@ else:
                         st.success("ارزیابی‌های امروز با موفقیت در پرونده شاگردان ذخیره گردید.")
                         st.rerun()
 
-    # ==================== ۵. پرسنل و استادان ====================
+    # ==================== ۶. پرسنل و استادان ====================
     elif menu == "👨‍🏫 پرسنل و استادان":
         st.title("👨‍🏫 مدیریت و پرداخت حقوق پرسنل و استادان")
         
@@ -752,7 +853,7 @@ else:
                                 st.success("پرداخت حذف و مبلغ به صندوق بازگشت.")
                                 st.rerun()
 
-    # ==================== ۶. ثبت مصارف مکتب ====================
+    # ==================== ۷. ثبت مصارف مکتب ====================
     elif menu == "💸 ثبت مصارف مکتب":
         st.title("💸 ثبت مصارف و هزینه‌های متفرقه مکتب")
         cursor = conn.cursor()
@@ -793,7 +894,7 @@ else:
                     st.success("مصرف حذف و مبلغ به صندوق بازگشت.")
                     st.rerun()
 
-    # ==================== ۷. جستجو و پرونده شاگردان ====================
+    # ==================== ۸. جستجو و پرونده شاگردان ====================
     elif menu == "🔍 جستجو و پرونده شاگردان":
         st.title("🔍 جستجو و پرونده مالی و اداری جامع دانش‌آموز")
         query = st.text_input("جستجو بر اساس نام یا آی‌دی شاگرد:")
@@ -937,7 +1038,7 @@ else:
                         st.success("دانش‌آموز حذف گردید.")
                         st.rerun()
 
-    # ==================== ۸. گزارش‌گیری پیشرفته ====================
+    # ==================== ۹. گزارش‌گیری پیشرفته ====================
     elif menu == "📈 گزارش‌گیری پیشرفته":
         st.title("📈 گزارش‌گیری پیشرفته و جامع مکتب")
         rep_type = st.selectbox("انتخاب نوع گزارش", [
@@ -992,7 +1093,7 @@ else:
             df = pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "نوع درآمد / فیس", "مبلغ", "توضیحات", "کاربر"])
             st.dataframe(df, use_container_width=True)
 
-    # ==================== ۹. مدیریت صندوق ====================
+    # ==================== ۱۰. مدیریت صندوق ====================
     elif menu == "💰 مدیریت صندوق":
         st.title("💰 گردش کامل صندوق و دخل مکتب")
         cursor = conn.cursor()
@@ -1002,7 +1103,7 @@ else:
             df_cash = pd.DataFrame(cash_rows, columns=["تاریخ", "نوع تراکنش", "دسته‌بندی", "مبلغ (افغانی)", "توضیحات", "کاربر"])
             st.dataframe(df_cash, use_container_width=True)
 
-    # ==================== ۱۰. مدیریت کاربران سیستم ====================
+    # ==================== ۱۱. مدیریت کاربران سیستم ====================
     elif menu == "👥 مدیریت کاربران سیستم":
         st.title("👥 مدیریت حساب‌های کاربری سیستم")
         if st.session_state.user_role != "Admin":
@@ -1033,7 +1134,7 @@ else:
             users_df = pd.DataFrame(cursor.fetchall(), columns=["شناسه", "نام کاربری", "نام کامل", "نقش"])
             st.dataframe(users_df, use_container_width=True)
 
-    # ==================== ۱۱. تنظیمات سیستم ====================
+    # ==================== ۱۲. تنظیمات سیستم ====================
     elif menu == "⚙️ تنظیمات سیستم":
         st.title("⚙️ تنظیمات سیستم و مدیریت گزینه‌ها")
         cursor = conn.cursor()
@@ -1073,7 +1174,7 @@ else:
                     except:
                         st.error("این دسته‌بندی قبلاً ثبت شده است.")
 
-    # ==================== ۱۲. چت آنلاین مدیر و کاربران ====================
+    # ==================== ۱۳. چت آنلاین مدیر و کاربران ====================
     elif menu == "💬 چت آنلاین مدیر و کاربران":
         st.title("💬 اتاق گفتگوی آنلاین مدیر و کاربران سیستم")
         st.markdown("ارتباط آنلاین و پیام‌رسانی لحظه‌ای میان مدیریت و کاربران")
@@ -1109,7 +1210,7 @@ else:
         else:
             st.info("هیچ پیامی ارسال نشده است.")
 
-    # ==================== ۱۳. راهنما ====================
+    # ==================== ۱۴. راهنما ====================
     elif menu == "📖 راهنما و کلیدهای میانبر":
         st.title("📖 راهنمای جامع سیستم مدیریت مالی مکتب")
         st.markdown("""
