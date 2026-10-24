@@ -14,7 +14,7 @@ st.set_page_config(
 
 DB_FILE = "school_finance.db"
 
-# ==================== استایل‌دهی سفارشی و پاک‌سازی کامل تداخلات موبایل ====================
+# ==================== استایل‌دهی حرفه‌ای و سازگار با موبایل ====================
 st.markdown("""
 <style>
     @import url('https://v1.fontapi.ir/css/Vazir');
@@ -25,42 +25,49 @@ st.markdown("""
         text-align: right;
     }
     
-    /* تمیزکاری کانتینر اصلی */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 2rem !important;
     }
 
     .main-header {
         background: linear-gradient(135deg, #0f172a, #1e293b);
         color: #ffffff;
-        padding: 20px;
-        border-radius: 14px;
-        margin-bottom: 20px;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 15px;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     .main-header h2 {
         color: #ffffff !important;
-        margin-bottom: 8px;
+        font-size: 20px !important;
+        margin-bottom: 5px;
+    }
+
+    .main-header p {
+        font-size: 13px !important;
+        color: #cbd5e1;
     }
 
     .search-card {
         background-color: #ffffff;
-        padding: 20px;
-        border-radius: 16px;
-        box-shadow: 0px 4px 20px rgba(0,0,0,0.06);
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.05);
         border: 1px solid #e2e8f0;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
 
-    .info-box {
+    .info-card {
         background-color: #f8fafc;
         border-right: 4px solid #12b8b2;
-        padding: 12px 16px;
+        padding: 12px;
         border-radius: 8px;
-        margin-bottom: 12px;
+        margin-bottom: 15px;
+        font-size: 14px;
+        line-height: 1.6;
     }
 
     .stButton>button {
@@ -73,11 +80,9 @@ st.markdown("""
         padding: 10px;
     }
 
-    /* تنظیمات اختصاصی موبایل برای جلوگیری از شکستن خطوط */
     @media (max-width: 768px) {
-        .main-header h2 { font-size: 18px !important; }
-        .main-header p { font-size: 12px !important; }
-        .stSelectbox, .stTextInput { width: 100% !important; }
+        .main-header h2 { font-size: 16px !important; }
+        .info-card { font-size: 12px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -384,7 +389,7 @@ if not st.session_state.logged_in:
             else:
                 st.error("نام کاربری یا رمز عبور اشتباه است!")
 else:
-    st.sidebar.markdown(f"👤 کاربر فعال: **{st.session_state.user_name}** ({st.session_state.user_role})")
+    st.sidebar.markdown(f"👤 کاربر: **{st.session_state.user_name}** ({st.session_state.user_role})")
     
     menu_options = [
         "🏠 صفحه اصلی", 
@@ -432,38 +437,45 @@ else:
             student_options[display_str] = s_id
 
         st.markdown('<div class="search-card">', unsafe_allow_html=True)
-        st.markdown("### 🔍 جستجوی شاگرد (نام + نام پدر)")
+        st.markdown("### 🔍 جستجوی شاگرد")
         
+        # یک باکس واحد برای جستجو و انتخاب
         selected_display = st.selectbox(
-            "تایپ نام شاگرد یا نام پدر جهت پیشنهاد خودکار:",
+            "نام شاگرد یا نام پدر را جستجو کنید:",
             options=[""] + list(student_options.keys()),
             key="main_search_box"
         )
-        search_btn = st.button("🔎 نمایش کامل پرونده")
         st.markdown('</div>', unsafe_allow_html=True)
 
         target_id = student_options.get(selected_display) if selected_display else None
 
-        if (search_btn or selected_display) and target_id:
+        if target_id:
             cursor.execute('''
                 SELECT student_id, student_no, full_name, father_name, grandfather_name, class_name, standard_fee, is_free, 
-                       uses_transport, transport_fee, father_phone, registration_date
+                       uses_transport, transport_route, transport_fee, takes_books, books_fee, takes_uniform, uniform_fee, 
+                       father_phone, mother_phone, registration_date
                 FROM students WHERE student_id = ?
             ''', (target_id,))
             st_row = cursor.fetchone()
 
             if st_row:
-                s_id, no, name, father, gfather, cls, fee, is_free, uses_t, t_fee, fphone, reg_date = st_row
+                (s_id, no, name, father, gfather, cls, fee, is_free, uses_t, t_route, t_fee, 
+                 takes_b, b_fee, takes_u, u_fee, fphone, mphone, reg_date) = st_row
+                
                 summary = get_student_financial_summary(s_id)
                 
                 if summary:
-                    st.success(f"📂 پرونده: {name} (پدر: {father}) - صنف: {cls}")
-                    
+                    free_badge = " (رایگان / معاف)" if is_free == 1 else ""
                     st.markdown(f"""
-                    <div class="info-box">
-                        <b>👴 نام پدرکلان:</b> {gfather} | <b>📞 تلفن پدر:</b> {fphone} | <b>📅 تاریخ ثبت‌نام:</b> {reg_date}<br>
-                        <b>💵 شهریه ماهانه:</b> {summary['monthly_fee']:,.2f} افغانی | <b>📆 ماه‌های فعال:</b> {summary['active_months']} ماه<br>
-                        <b>🔻 باقی‌داری کل:</b> <span style="color:red; font-weight:bold;">{summary['net_debt']:,.2f} افغانی</span> | <b>🟢 بستانکاری:</b> {summary['advance_pay']:,.2f} افغانی
+                    <div class="info-card">
+                        <b>🎓 نام شاگرد:</b> {name}{free_badge} | <b>🆔 آی‌دی:</b> {no}<br>
+                        <b>👨 پدر:</b> {father} | <b>👴 پدرکلان:</b> {gfather} | <b>🏫 صنف:</b> {cls}<br>
+                        <b>📞 تلفن پدر:</b> {fphone} | <b>📞 تلفن مادر:</b> {mphone} | <b>📅 تاریخ ثبت‌نام:</b> {reg_date}<br>
+                        <b>💵 فیس ماهانه:</b> {summary['monthly_fee']:,.2f} افغانی | <b>📆 ماه‌های فعال:</b> {summary['active_months']} ماه<br>
+                        <b>🚌 ترانسپورت:</b> {'دارد (' + t_route + ' - ' + str(t_fee) + ' افغانی)' if uses_t else 'ندارد'}<br>
+                        <b>📚 کتاب:</b> {'دارد (' + str(b_fee) + ' افغانی)' if takes_b else 'ندارد'} | <b>👕 لباس:</b> {'دارد (' + str(u_fee) + ' افغانی)' if takes_u else 'ندارد'}<br>
+                        <b>📊 ریز بدهی‌ها:</b> [قبلی: {summary['previous_debt']:,.2f}] | [شهریه: {summary['calc_tuition']:,.2f}] | [ترانسپورت: {summary['calc_transport']:,.2f}] | [کتاب: {summary['books_debt']:,.2f}] | [لباس: {summary['uniform_debt']:,.2f}]<br>
+                        <b>🔻 باقی‌داری کل:</b> <span style="color:red; font-weight:bold;">{summary['net_debt']:,.2f} افغانی</span> | <b>🟢 بستانکاری/پیش‌پرداخت:</b> {summary['advance_pay']:,.2f} افغانی
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -485,10 +497,10 @@ else:
                                     st.success("پرداخت ثبت گردید.")
                                     st.rerun()
 
-                        cursor.execute("SELECT payment_id, date, fee_type, amount, user_name FROM student_payments WHERE student_id = ?", (s_id,))
+                        cursor.execute("SELECT payment_id, date, fee_type, amount, description, user_name FROM student_payments WHERE student_id = ?", (s_id,))
                         p_rows = cursor.fetchall()
                         if p_rows:
-                            st.dataframe(pd.DataFrame(p_rows, columns=["شناسه", "تاریخ", "نوع", "مبلغ", "کاربر"]), use_container_width=True)
+                            st.dataframe(pd.DataFrame(p_rows, columns=["شناسه", "تاریخ", "نوع", "مبلغ", "توضیحات", "کاربر"]), use_container_width=True)
 
                     with tab_break:
                         with st.form(f"break_form_{s_id}"):
@@ -503,12 +515,18 @@ else:
                                     st.success("مرخصی ثبت شد.")
                                     st.rerun()
 
+                        cursor.execute("SELECT break_id, start_month, end_month, reason FROM student_breaks WHERE student_id = ?", (s_id,))
+                        b_rows = cursor.fetchall()
+                        if b_rows:
+                            st.dataframe(pd.DataFrame(b_rows, columns=["شناسه", "از تاریخ", "تا تاریخ", "دلیل"]), use_container_width=True)
+
                     with tab_att:
                         cursor.execute("SELECT status, COUNT(*) FROM attendance WHERE student_id = ? GROUP BY status", (s_id,))
                         att_stats = {r[0]: r[1] for r in cursor.fetchall()}
                         p_c = sum(v for k, v in att_stats.items() if "حاضر" in k and "غیر" not in k)
                         a_c = sum(v for k, v in att_stats.items() if "غیرحاضر" in k)
-                        st.write(f"✅ **حاضر:** {p_c} روز | ❌ **غیرحاضر:** {a_c} روز")
+                        l_c = sum(v for k, v in att_stats.items() if "رخصتی" in k)
+                        st.write(f"✅ **حاضر:** {p_c} روز | ❌ **غیرحاضر:** {a_c} روز | 📌 **رخصتی:** {l_c} روز")
 
                     with tab_eval:
                         cursor.execute("SELECT evaluation_id, date, total_score FROM evaluations WHERE student_id = ? ORDER BY evaluation_id DESC", (s_id,))
@@ -518,15 +536,19 @@ else:
                         with st.form(f"edit_form_{s_id}"):
                             e_name = st.text_input("نام کامل", value=str(name), key=f"ename_{s_id}")
                             e_father = st.text_input("نام پدر", value=str(father), key=f"efather_{s_id}")
-                            e_fee = st.number_input("شهریه", value=float(fee), key=f"efee_{s_id}")
+                            e_fee = st.number_input("شهریه ماهانه", value=float(fee), key=f"efee_{s_id}")
+                            e_free = st.checkbox("شاگرد رایگان", value=bool(is_free), key=f"efree_{s_id}")
+                            e_fphone = st.text_input("تلفن پدر", value=str(fphone), key=f"efp_{s_id}")
                             if st.form_submit_button("ذخیره تغییرات"):
-                                cursor.execute("UPDATE students SET full_name=?, father_name=?, standard_fee=? WHERE student_id=?",
-                                               (e_name, e_father, e_fee, s_id))
+                                is_f_val = 1 if e_free else 0
+                                fee_val = 0.0 if is_f_val else e_fee
+                                cursor.execute("UPDATE students SET full_name=?, father_name=?, standard_fee=?, is_free=?, father_phone=? WHERE student_id=?",
+                                               (e_name, e_father, fee_val, is_f_val, e_fphone, s_id))
                                 conn.commit()
                                 st.success("بروزرسانی شد.")
                                 st.rerun()
 
-    # ==================== ۱۱. کاربران (مدیریت و تعریف کاربر جدید توسط ادمین) ====================
+    # ==================== ۱۱. کاربران ====================
     elif menu == "👥 کاربران":
         st.title("👥 مدیریت کاربران سیستم")
         
@@ -571,7 +593,7 @@ else:
                     st.success("کاربر حذف شد.")
                     st.rerun()
 
-    # ==================== سایر بخش‌ها (داشبورد، ثبت‌نام، حاضری و...) ====================
+    # ==================== سایر بخش‌ها ====================
     elif menu == "📊 داشبورد آمار":
         st.title("📊 آمار و صندوق")
         cursor = conn.cursor()
