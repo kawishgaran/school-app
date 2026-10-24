@@ -160,12 +160,14 @@ def init_db():
         )
     ''')
     
+    # جدول صندوق مالی با ستون‌های تفکیک‌شده برای نام شخص مقابل
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cashbox (
             transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT NOT NULL,
             type TEXT NOT NULL,
             category TEXT NOT NULL,
+            person_name TEXT DEFAULT '',
             amount REAL NOT NULL,
             description TEXT,
             user_name TEXT DEFAULT ''
@@ -441,13 +443,14 @@ else:
                                         cursor.execute("INSERT INTO student_payments (student_id, date, trans_type, fee_type, amount, description, user_name) VALUES (?, ?, 'دریافت وجه', ?, ?, ?, ?)",
                                                        (s_id, p_date, fee_type, p_amt, p_desc, st.session_state.user_name))
                                         
-                                        # ثبت دقیق و شفاف در روزنامچه صندوق (مشخص شدن نام شاگرد)
-                                        cash_desc = f"دریافت وجه از شاگرد: {name} (پدر: {father} | آی‌دی: {no}) - بابت: {fee_type}\nتوضیحات: {p_desc}"
-                                        cursor.execute("INSERT INTO cashbox (date, type, category, amount, description, user_name) VALUES (?, 'Inflow', ?, ?, ?, ?)",
-                                                       (p_date, f"دریافت فیس ({fee_type})", p_amt, cash_desc, st.session_state.user_name))
+                                        # ثبت دقیق نام شاگرد در روزنامچه صندوق
+                                        person_str = f"شاگرد: {name} (پدر: {father} | آی‌دی: {no})"
+                                        cash_desc = f"بابت: {fee_type} | توضیحات: {p_desc}"
+                                        cursor.execute("INSERT INTO cashbox (date, type, category, person_name, amount, description, user_name) VALUES (?, 'Inflow', ?, ?, ?, ?, ?)",
+                                                       (p_date, f"دریافت فیس ({fee_type})", person_str, p_amt, cash_desc, st.session_state.user_name))
                                         
                                         conn.commit()
-                                        st.success(f"مبلغ {p_amt:,.2f} افغانی از شاگرد '{name}' با موفقیت دریافت و در روزنامچه صندوق ثبت گردید.")
+                                        st.success(f"مبلغ {p_amt:,.2f} افغانی از شاگرد '{name}' دریافت و در روزنامچه صندوق ثبت شد.")
                                         st.rerun()
 
                             st.markdown("##### 💳 سوابق پرداخت‌های این شاگرد")
@@ -462,7 +465,7 @@ else:
                                     cursor.execute("SELECT amount FROM student_payments WHERE payment_id = ?", (del_p_id,))
                                     r_p = cursor.fetchone()
                                     if r_p:
-                                        cursor.execute("INSERT INTO cashbox (date, type, category, amount, description, user_name) VALUES (date('now'), 'Outflow', 'برگشت پرداخت شاگرد', ?, 'حذف پرداخت شاگرد و اصلاح حساب', ?)",
+                                        cursor.execute("INSERT INTO cashbox (date, type, category, person_name, amount, description, user_name) VALUES (date('now'), 'Outflow', 'برگشت پرداخت شاگرد', 'سیستم / اصلاح حساب', ?, 'حذف پرداخت شاگرد', ?)",
                                                        (r_p[0], st.session_state.user_name))
                                         cursor.execute("DELETE FROM student_payments WHERE payment_id = ?", (del_p_id,))
                                         conn.commit()
@@ -589,19 +592,19 @@ else:
             st.dataframe(df, use_container_width=True)
 
         elif "مصارف مکتب" in rep_type:
-            cursor.execute("SELECT date, category, amount, description, user_name FROM cashbox WHERE type='Outflow' AND category != 'پرداخت پرسنل'")
-            df = pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "دسته‌بندی", "مبلغ", "تشریحات", "کاربر"])
+            cursor.execute("SELECT date, category, person_name, amount, description, user_name FROM cashbox WHERE type='Outflow' AND category != 'پرداخت پرسنل'")
+            df = pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "دسته‌بندی", "طرف حساب / شخص", "مبلغ", "تشریحات", "کاربر"])
             st.dataframe(df, use_container_width=True)
 
         elif "پرداختی‌ها و درآمدها" in rep_type:
-            cursor.execute("SELECT date, category, amount, description, user_name FROM cashbox WHERE type='Inflow'")
-            df = pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "نوع درآمد / فیس", "مبلغ", "توضیحات", "کاربر"])
+            cursor.execute("SELECT date, category, person_name, amount, description, user_name FROM cashbox WHERE type='Inflow'")
+            df = pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "نوع درآمد / فیس", "طرف حساب / شخص", "مبلغ", "توضیحات", "کاربر"])
             st.dataframe(df, use_container_width=True)
 
-    # ==================== ۳. مدیریت صندوق (روزنامچه مالی) ====================
+    # ==================== ۳. مدیریت صندوق (روزنامچه مالی با نام شخص) ====================
     elif menu == "💰 مدیریت صندوق":
         st.title("💰 روزنامچه مالی و گردش کامل صندوق مکتب")
-        st.markdown("در این بخش تمامی واریزها (از طرف شاگردان) و برداشت‌ها (پرداخت حقوق استادان و مصارف) به صورت شفاف ثبت و قابل مشاهده است.")
+        st.markdown("در این دفترچه روزانه، کاملاً مشخص است که پول از چه کسی (کدام شاگرد) دریافت شده و به چه کسی (کدام استاد یا پرسنل) پرداخت شده است.")
         
         cursor = conn.cursor()
         cursor.execute("SELECT SUM(amount) FROM cashbox WHERE type='Inflow'")
@@ -618,13 +621,13 @@ else:
         col3.metric("موجودی فعلی دخل (صندوق)", f"{current_balance:,.2f} افغانی")
         
         st.markdown("---")
-        st.subheader("📋 دفترچه روزنامچه مالی (تراکنش‌های ورود و خروج)")
+        st.subheader("📋 دفترچه روزنامچه مالی (با ذکر نام شخص دریافت‌کننده و پرداخت‌کننده)")
         
-        cursor.execute("SELECT transaction_id, date, type, category, amount, description, user_name FROM cashbox ORDER BY transaction_id DESC")
+        cursor.execute("SELECT transaction_id, date, type, category, person_name, amount, description, user_name FROM cashbox ORDER BY transaction_id DESC")
         cash_rows = cursor.fetchall()
         
         if cash_rows:
-            df_cash = pd.DataFrame(cash_rows, columns=["شناسه", "تاریخ", "نوع تراکنش (In/Out)", "دسته‌بندی", "مبلغ (افغانی)", "شرح و جزئیات کامل (نام شخص / بابت)", "کاربر ثبت‌کننده"])
+            df_cash = pd.DataFrame(cash_rows, columns=["شناسه", "تاریخ", "نوع (ورود/خروج)", "دسته‌بندی", "نام شخص (شاگرد / استاد / طرف حساب)", "مبلغ (افغانی)", "توضیحات", "کاربر ثبت‌کننده"])
             st.dataframe(df_cash, use_container_width=True)
         else:
             st.info("هیچ تراکنشی در صندوق ثبت نشده است.")
@@ -885,13 +888,14 @@ else:
                                 cursor.execute("INSERT INTO staff_payments (staff_id, date, trans_type, amount, description, user_name) VALUES (?, ?, 'پرداخت حقوق', ?, ?, ?)",
                                                (st_id, p_date, p_amt, p_desc, st.session_state.user_name))
                                 
-                                # ثبت دقیق و شفاف در روزنامچه صندوق (مشخص شدن نام استاد/کارمند)
-                                cash_desc = f"پرداخت حقوق به پرسنل: {st_name} (وظیفه: {st_role} | آی‌دی: {st_no})\nتوضیحات: {p_desc}"
-                                cursor.execute("INSERT INTO cashbox (date, type, category, amount, description, user_name) VALUES (?, 'Outflow', 'پرداخت پرسنل', ?, ?, ?)",
-                                               (p_date, p_amt, cash_desc, st.session_state.user_name))
+                                # ثبت دقیق نام استاد در روزنامچه صندوق
+                                person_str = f"استاد / پرسنل: {st_name} (وظیفه: {st_role} | آی‌دی: {st_no})"
+                                cash_desc = f"توضیحات: {p_desc}"
+                                cursor.execute("INSERT INTO cashbox (date, type, category, person_name, amount, description, user_name) VALUES (?, 'Outflow', 'پرداخت پرسنل', ?, ?, ?, ?)",
+                                               (p_date, p_amt, person_str, cash_desc, st.session_state.user_name))
                                 
                                 conn.commit()
-                                st.success(f"حقوق مبلغ {p_amt:,.2f} افغانی به '{st_name}' پرداخت و در روزنامچه صندوق ثبت شد.")
+                                st.success(f"حقوق مبلغ {p_amt:,.2f} افغانی به استاد '{st_name}' پرداخت و در روزنامچه صندوق ثبت شد.")
                                 st.rerun()
 
                 with t_p2:
@@ -906,7 +910,7 @@ else:
                             cursor.execute("SELECT amount FROM staff_payments WHERE payment_id = ?", (del_sp_id,))
                             r_amt = cursor.fetchone()
                             if r_amt:
-                                cursor.execute("INSERT INTO cashbox (date, type, category, amount, description, user_name) VALUES (date('now'), 'Inflow', 'برگشت حقوق پرسنل', ?, 'حذف پرداخت حقوق و اصلاح حساب صندوق', ?)",
+                                cursor.execute("INSERT INTO cashbox (date, type, category, person_name, amount, description, user_name) VALUES (date('now'), 'Inflow', 'برگشت حقوق پرسنل', 'سیستم / اصلاح حساب', ?, 'حذف پرداخت حقوق', ?)",
                                                (r_amt[0], st.session_state.user_name))
                                 cursor.execute("DELETE FROM staff_payments WHERE payment_id = ?", (del_sp_id,))
                                 conn.commit()
@@ -922,23 +926,24 @@ else:
         with st.form("exp_form"):
             ex_date = st.text_input("تاریخ مصرف", value=jdatetime.date.today().strftime("%Y/%m/%d"))
             ex_cat = st.selectbox("دسته‌بندی مصرف", cats)
+            ex_person = st.text_input("طرف حساب / دریافت‌کننده وجه (اختیاری)")
             ex_amount = st.number_input("مبلغ (افغانی)", min_value=0.0)
             ex_desc = st.text_input("تشریحات کامل مصرف")
             
             if st.form_submit_button("💸 ثبت مصرف و کسر از صندوق"):
                 if ex_amount > 0 and ex_desc:
-                    cursor.execute("INSERT INTO cashbox (date, type, category, amount, description, user_name) VALUES (?, 'Outflow', ?, ?, ?, ?)",
-                                   (ex_date, ex_cat, ex_amount, f"مصرف متفرقه: {ex_desc}", st.session_state.user_name))
+                    cursor.execute("INSERT INTO cashbox (date, type, category, person_name, amount, description, user_name) VALUES (?, 'Outflow', ?, ?, ?, ?, ?)",
+                                   (ex_date, ex_cat, ex_person if ex_person else "متفرقه", ex_amount, ex_desc, st.session_state.user_name))
                     conn.commit()
                     st.success("مصرف ثبت و از صندوق کسر گردید.")
                 else:
                     st.warning("مبلغ و توضیحات را وارد کنید.")
 
         st.markdown("### 📋 لیست مصارف ثبت‌شده")
-        cursor.execute("SELECT transaction_id, date, category, amount, description, user_name FROM cashbox WHERE type='Outflow' AND category != 'پرداخت پرسنل'")
+        cursor.execute("SELECT transaction_id, date, category, person_name, amount, description, user_name FROM cashbox WHERE type='Outflow' AND category != 'پرداخت پرسنل'")
         exp_rows = cursor.fetchall()
         if exp_rows:
-            df_exp = pd.DataFrame(exp_rows, columns=["شناسه تراکنش", "تاریخ", "دسته‌بندی", "مبلغ", "تشریحات", "کاربر"])
+            df_exp = pd.DataFrame(exp_rows, columns=["شناسه تراکنش", "تاریخ", "دسته‌بندی", "طرف حساب", "مبلغ", "تشریحات", "کاربر"])
             st.dataframe(df_exp, use_container_width=True)
 
     elif menu == "👥 مدیریت کاربران سیستم":
@@ -1017,8 +1022,8 @@ else:
         این سیستم به عنوان نسخه کامل وب جهت دسترسی آنلاین و همزمان چند کاربر طراحی شده است.
 
         #### 📋 راهنمای بخش‌ها:
-        1. **جستجو و پرونده شاگردان:** جستجوی آسان نام شاگرد همراه با نام پدر، دریافت فیس (که اتوماتیک با نام شاگرد در روزنامچه صندوق ثبت می‌شود).
-        2. **مدیریت صندوق (روزنامچه مالی):** مشاهده شفاف اینکه پول از طرف کدام شاگرد گرفته شده یا به چه استادی پرداخت شده است.
+        1. **جستجو و پرونده شاگردان:** جستجوی آسان نام شاگرد همراه با نام پدر، دریافت فیس (که اتوماتیک با نام کامل شاگرد در روزنامچه صندوق ثبت می‌شود).
+        2. **مدیریت صندوق (روزنامچه مالی):** مشاهده شفاف نام شاگردی که از او پول دریافت شده یا نام استادی که به او حقوق پرداخت شده است.
         3. **گزارش‌گیری پیشرفته:** تهیه گزارشات کامل و دسته‌بندی‌شده از شاگردان، باقی‌داری‌ها و پرسنل.
         """)
 
