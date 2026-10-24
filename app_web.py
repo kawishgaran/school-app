@@ -4,17 +4,17 @@ import jdatetime
 import math
 import pandas as pd
 
-# ==================== تنظیمات صفحه ====================
+# ==================== تنظیمات اصلی صفحه ====================
 st.set_page_config(
     page_title="مکتب خصوصی کاوشگران دانش بلخ",
     page_icon="🏫",
     layout="wide",
-    initial_sidebar_state="auto"
+    initial_sidebar_state="expanded"
 )
 
 DB_FILE = "school_finance.db"
 
-# ==================== استایل‌دهی حرفه‌ای و سازگار با موبایل ====================
+# ==================== استایل‌دهی ساده و بدون تداخل برای موبایل ====================
 st.markdown("""
 <style>
     @import url('https://v1.fontapi.ir/css/Vazir');
@@ -25,51 +25,6 @@ st.markdown("""
         text-align: right;
     }
     
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 2rem !important;
-    }
-
-    .main-header {
-        background: linear-gradient(135deg, #0f172a, #1e293b);
-        color: #ffffff;
-        padding: 15px;
-        border-radius: 12px;
-        margin-bottom: 15px;
-        text-align: center;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    .main-header h2 {
-        color: #ffffff !important;
-        font-size: 20px !important;
-        margin-bottom: 5px;
-    }
-
-    .main-header p {
-        font-size: 13px !important;
-        color: #cbd5e1;
-    }
-
-    .search-card {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 12px;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.05);
-        border: 1px solid #e2e8f0;
-        margin-bottom: 15px;
-    }
-
-    .info-card {
-        background-color: #f8fafc;
-        border-right: 4px solid #12b8b2;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        font-size: 14px;
-        line-height: 1.6;
-    }
-
     .stButton>button {
         background-color: #12b8b2 !important;
         color: white !important;
@@ -77,12 +32,6 @@ st.markdown("""
         border: none !important;
         width: 100%;
         font-weight: bold;
-        padding: 10px;
-    }
-
-    @media (max-width: 768px) {
-        .main-header h2 { font-size: 16px !important; }
-        .info-card { font-size: 12px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -370,7 +319,7 @@ if 'logged_in' not in st.session_state:
     st.session_state.user_role = ""
 
 if not st.session_state.logged_in:
-    st.title("🏫 ورود به سیستم - مکتب خصوصی کاوشگران دانش بلخ")
+    st.title("🏫 ورود به سیستم - مکتب کاوشگران دانش بلخ")
     with st.form("login_form"):
         u = st.text_input("👤 نام کاربری")
         p = st.text_input("🔒 رمز عبور", type="password")
@@ -389,26 +338,28 @@ if not st.session_state.logged_in:
             else:
                 st.error("نام کاربری یا رمز عبور اشتباه است!")
 else:
+    # منوی منسجم سایدبار بدون تداخل
+    st.sidebar.title("📌 منوی اصلی")
     st.sidebar.markdown(f"👤 کاربر: **{st.session_state.user_name}** ({st.session_state.user_role})")
     
     menu_options = [
-        "🏠 صفحه اصلی", 
+        "🏠 صفحه اصلی (جستجوی شاگرد)", 
         "📊 داشبورد آمار",
-        "➕ ثبت‌نام", 
-        "📝 حاضری", 
-        "⭐ ارزیابی", 
-        "👨‍🏫 پرسنل", 
-        "💸 مصارف", 
-        "🔍 پرونده‌ها", 
-        "📈 گزارشات", 
-        "💰 صندوق", 
-        "👥 کاربران",
+        "➕ ثبت‌نام شاگرد جدید", 
+        "📝 حاضری روزانه", 
+        "⭐ ارزیابی ماهانه", 
+        "👨‍🏫 پرسنل و استادان", 
+        "💸 ثبت مصارف مکتب", 
+        "🔍 لیست کلی پرونده‌ها", 
+        "📈 گزارش‌گیری", 
+        "💰 مدیریت صندوق", 
+        "👥 کاربران سیستم",
         "⚙️ تنظیمات",
         "💬 چت آنلاین",
         "📖 راهنما"
     ]
     
-    menu = st.sidebar.radio("📌 منوی سیستم", menu_options)
+    menu = st.sidebar.selectbox("انتخاب بخش:", menu_options)
     
     if st.sidebar.button("🚪 خروج از سیستم"):
         st.session_state.logged_in = False
@@ -418,14 +369,10 @@ else:
 
     conn = sqlite3.connect(DB_FILE)
 
-    # ==================== ۱. صفحه اصلی ====================
-    if menu == "🏠 صفحه اصلی":
-        st.markdown("""
-        <div class="main-header">
-            <h2>🏫 مکتب خصوصی کاوشگران دانش بلخ</h2>
-            <p>سامانه جستجوی هوشمند پرونده دانش‌آموزان</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # ==================== ۱. صفحه اصلی (جستجوی تک‌باکسی هوشمند) ====================
+    if menu == "🏠 صفحه اصلی (جستجوی شاگرد)":
+        st.title("🏫 مکتب خصوصی کاوشگران دانش بلخ")
+        st.subheader("🔍 جستجوی هوشمند پرونده دانش‌آموز")
 
         cursor = conn.cursor()
         cursor.execute("SELECT student_id, student_no, full_name, father_name, class_name FROM students WHERE status='فعال'")
@@ -436,16 +383,12 @@ else:
             display_str = f"{s_name} (پدر: {f_name} | صنف: {c_name} | آی‌دی: {s_no})"
             student_options[display_str] = s_id
 
-        st.markdown('<div class="search-card">', unsafe_allow_html=True)
-        st.markdown("### 🔍 جستجوی شاگرد")
-        
-        # یک باکس واحد برای جستجو و انتخاب
+        # فقط یک باکس واحد جهت تایپ و انتخاب خودکار
         selected_display = st.selectbox(
-            "نام شاگرد یا نام پدر را جستجو کنید:",
+            "نام شاگرد یا نام پدر را در باکس زیر تایپ کنید:",
             options=[""] + list(student_options.keys()),
-            key="main_search_box"
+            key="unique_search_box"
         )
-        st.markdown('</div>', unsafe_allow_html=True)
 
         target_id = student_options.get(selected_display) if selected_display else None
 
@@ -465,20 +408,27 @@ else:
                 summary = get_student_financial_summary(s_id)
                 
                 if summary:
-                    free_badge = " (رایگان / معاف)" if is_free == 1 else ""
-                    st.markdown(f"""
-                    <div class="info-card">
-                        <b>🎓 نام شاگرد:</b> {name}{free_badge} | <b>🆔 آی‌دی:</b> {no}<br>
-                        <b>👨 پدر:</b> {father} | <b>👴 پدرکلان:</b> {gfather} | <b>🏫 صنف:</b> {cls}<br>
-                        <b>📞 تلفن پدر:</b> {fphone} | <b>📞 تلفن مادر:</b> {mphone} | <b>📅 تاریخ ثبت‌نام:</b> {reg_date}<br>
-                        <b>💵 فیس ماهانه:</b> {summary['monthly_fee']:,.2f} افغانی | <b>📆 ماه‌های فعال:</b> {summary['active_months']} ماه<br>
-                        <b>🚌 ترانسپورت:</b> {'دارد (' + t_route + ' - ' + str(t_fee) + ' افغانی)' if uses_t else 'ندارد'}<br>
-                        <b>📚 کتاب:</b> {'دارد (' + str(b_fee) + ' افغانی)' if takes_b else 'ندارد'} | <b>👕 لباس:</b> {'دارد (' + str(u_fee) + ' افغانی)' if takes_u else 'ندارد'}<br>
-                        <b>📊 ریز بدهی‌ها:</b> [قبلی: {summary['previous_debt']:,.2f}] | [شهریه: {summary['calc_tuition']:,.2f}] | [ترانسپورت: {summary['calc_transport']:,.2f}] | [کتاب: {summary['books_debt']:,.2f}] | [لباس: {summary['uniform_debt']:,.2f}]<br>
-                        <b>🔻 باقی‌داری کل:</b> <span style="color:red; font-weight:bold;">{summary['net_debt']:,.2f} افغانی</span> | <b>🟢 بستانکاری/پیش‌پرداخت:</b> {summary['advance_pay']:,.2f} افغانی
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown("---")
+                    st.header(f"📂 پرونده: {name}")
+                    
+                    # کارت مشخصات ساده، واضح و بدون شکستگی فونت
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.write(f"👤 **نام کامل:** {name} {'(معاف/رایگان)' if is_free == 1 else ''}")
+                        st.write(f"👨 **نام پدر:** {father}")
+                        st.write(f"👴 **نام پدرکلان:** {gfather}")
+                        st.write(f"🏫 **صنف:** {cls}")
+                        st.write(f"🆔 **آی‌دی:** {no}")
+                        st.write(f"📅 **تاریخ ثبت‌نام:** {reg_date}")
+                    with c2:
+                        st.write(f"📞 **تلفن پدر:** {fphone}")
+                        st.write(f"📞 **تلفن مادر:** {mphone}")
+                        st.write(f"💵 **شهریه ماهانه:** {summary['monthly_fee']:,.2f} افغانی")
+                        st.write(f"📆 **ماه‌های فعال:** {summary['active_months']} ماه")
+                        st.write(f"🔻 **باقی‌داری کل:** {summary['net_debt']:,.2f} افغانی")
+                        st.write(f"🟢 **پیش‌پرداخت/بستانکاری:** {summary['advance_pay']:,.2f} افغانی")
 
+                    st.markdown("---")
                     tab_pay, tab_break, tab_att, tab_eval, tab_edit = st.tabs(["💳 دریافت فیس", "📌 مرخصی", "📊 حاضری", "⭐ ارزیابی", "✏️ ویرایش"])
 
                     with tab_pay:
@@ -487,26 +437,27 @@ else:
                             p_amt = st.number_input("مبلغ پرداختی (افغانی)", min_value=0.0, key=f"pa_{s_id}")
                             p_date = st.text_input("تاریخ", value=jdatetime.date.today().strftime("%Y/%m/%d"), key=f"pd_{s_id}")
                             p_desc = st.text_input("توضیحات", key=f"pdes_{s_id}")
-                            if st.form_submit_button("ثبت پرداخت"):
+                            if st.form_submit_button("ثبت دریافت وجه"):
                                 if p_amt > 0:
                                     cursor.execute("INSERT INTO student_payments (student_id, date, trans_type, fee_type, amount, description, user_name) VALUES (?, ?, 'دریافت وجه', ?, ?, ?, ?)",
                                                    (s_id, p_date, fee_type, p_amt, p_desc, st.session_state.user_name))
                                     cursor.execute("INSERT INTO cashbox (date, type, category, amount, description, user_name) VALUES (?, 'Inflow', ?, ?, ?, ?)",
                                                    (p_date, f"دریافت {fee_type}", p_amt, f"پرداخت شاگرد ID:{s_id}\n{p_desc}", st.session_state.user_name))
                                     conn.commit()
-                                    st.success("پرداخت ثبت گردید.")
+                                    st.success("پرداخت ثبت شد.")
                                     st.rerun()
 
                         cursor.execute("SELECT payment_id, date, fee_type, amount, description, user_name FROM student_payments WHERE student_id = ?", (s_id,))
                         p_rows = cursor.fetchall()
                         if p_rows:
+                            st.write("📋 سوابق پرداختی‌های این شاگرد:")
                             st.dataframe(pd.DataFrame(p_rows, columns=["شناسه", "تاریخ", "نوع", "مبلغ", "توضیحات", "کاربر"]), use_container_width=True)
 
                     with tab_break:
                         with st.form(f"break_form_{s_id}"):
-                            b_start = st.text_input("از تاریخ", key=f"bs_{s_id}")
-                            b_end = st.text_input("تا تاریخ", key=f"be_{s_id}")
-                            b_reason = st.text_input("دلیل", key=f"br_{s_id}")
+                            b_start = st.text_input("از تاریخ/ماه", key=f"bs_{s_id}")
+                            b_end = st.text_input("تا تاریخ/ماه", key=f"be_{s_id}")
+                            b_reason = st.text_input("دلیل مرخصی", key=f"br_{s_id}")
                             if st.form_submit_button("ثبت مرخصی"):
                                 if b_start and b_end:
                                     cursor.execute("INSERT INTO student_breaks (student_id, start_month, end_month, reason) VALUES (?, ?, ?, ?)",
@@ -525,8 +476,7 @@ else:
                         att_stats = {r[0]: r[1] for r in cursor.fetchall()}
                         p_c = sum(v for k, v in att_stats.items() if "حاضر" in k and "غیر" not in k)
                         a_c = sum(v for k, v in att_stats.items() if "غیرحاضر" in k)
-                        l_c = sum(v for k, v in att_stats.items() if "رخصتی" in k)
-                        st.write(f"✅ **حاضر:** {p_c} روز | ❌ **غیرحاضر:** {a_c} روز | 📌 **رخصتی:** {l_c} روز")
+                        st.info(f"✅ حاضر: {p_c} روز | ❌ غیرحاضر: {a_c} روز")
 
                     with tab_eval:
                         cursor.execute("SELECT evaluation_id, date, total_score FROM evaluations WHERE student_id = ? ORDER BY evaluation_id DESC", (s_id,))
@@ -537,25 +487,22 @@ else:
                             e_name = st.text_input("نام کامل", value=str(name), key=f"ename_{s_id}")
                             e_father = st.text_input("نام پدر", value=str(father), key=f"efather_{s_id}")
                             e_fee = st.number_input("شهریه ماهانه", value=float(fee), key=f"efee_{s_id}")
-                            e_free = st.checkbox("شاگرد رایگان", value=bool(is_free), key=f"efree_{s_id}")
                             e_fphone = st.text_input("تلفن پدر", value=str(fphone), key=f"efp_{s_id}")
-                            if st.form_submit_button("ذخیره تغییرات"):
-                                is_f_val = 1 if e_free else 0
-                                fee_val = 0.0 if is_f_val else e_fee
-                                cursor.execute("UPDATE students SET full_name=?, father_name=?, standard_fee=?, is_free=?, father_phone=? WHERE student_id=?",
-                                               (e_name, e_father, fee_val, is_f_val, e_fphone, s_id))
+                            if st.form_submit_button("ذخیره ویرایش"):
+                                cursor.execute("UPDATE students SET full_name=?, father_name=?, standard_fee=?, father_phone=? WHERE student_id=?",
+                                               (e_name, e_father, e_fee, e_fphone, s_id))
                                 conn.commit()
-                                st.success("بروزرسانی شد.")
+                                st.success("اطلاعات بروزرسانی شد.")
                                 st.rerun()
 
     # ==================== ۱۱. کاربران ====================
-    elif menu == "👥 کاربران":
+    elif menu == "👥 کاربران سیستم":
         st.title("👥 مدیریت کاربران سیستم")
         
         if st.session_state.user_role != "Admin":
             st.error("⛔ فقط مدیر کل (Admin) دسترسی به این بخش دارد.")
         else:
-            st.markdown("### ➕ تعریف کاربر جدید")
+            st.subheader("➕ تعریف کاربر جدید")
             with st.form("new_user_form"):
                 nu_name = st.text_input("نام و نام خانوادگی *")
                 nu_user = st.text_input("نام کاربری (Username) *")
@@ -573,11 +520,9 @@ else:
                             st.rerun()
                         except:
                             st.error("این نام کاربری قبلاً ثبت شده است.")
-                    else:
-                        st.warning("لطفاً تمامی موارد را پر کنید.")
 
             st.markdown("---")
-            st.markdown("### 📋 لیست کاربران فعال")
+            st.subheader("📋 لیست کاربران فعال")
             cursor = conn.cursor()
             cursor.execute("SELECT user_id, username, full_name, role FROM users")
             users_list = cursor.fetchall()
@@ -585,17 +530,10 @@ else:
             if users_list:
                 df_u = pd.DataFrame(users_list, columns=["شناسه", "نام کاربری", "نام کامل", "نقش"])
                 st.dataframe(df_u, use_container_width=True)
-                
-                del_u_id = st.number_input("شناسه کاربر جهت حذف:", min_value=1, step=1)
-                if st.button("❌ حذف کاربر"):
-                    cursor.execute("DELETE FROM users WHERE user_id = ?", (del_u_id,))
-                    conn.commit()
-                    st.success("کاربر حذف شد.")
-                    st.rerun()
 
-    # ==================== سایر بخش‌ها ====================
+    # ==================== سایر بخش‌های سیستم ====================
     elif menu == "📊 داشبورد آمار":
-        st.title("📊 آمار و صندوق")
+        st.title("📊 آمار و وضعیت صندوق")
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM students WHERE status='فعال'")
         s_count = cursor.fetchone()[0] or 0
@@ -603,11 +541,12 @@ else:
         inflow = cursor.fetchone()[0] or 0
         cursor.execute("SELECT SUM(amount) FROM cashbox WHERE type='Outflow'")
         outflow = cursor.fetchone()[0] or 0
-        st.metric("تعداد شاگردان فعال", f"{s_count} نفر")
-        st.metric("موجودی صندوق", f"{inflow - outflow:,.2f} افغانی")
+        col1, col2 = st.columns(2)
+        col1.metric("تعداد شاگردان فعال", f"{s_count} نفر")
+        col2.metric("موجودی صندوق", f"{inflow - outflow:,.2f} افغانی")
 
-    elif menu == "➕ ثبت‌نام":
-        st.title("🎓 ثبت‌نام جدید")
+    elif menu == "➕ ثبت‌نام شاگرد جدید":
+        st.title("🎓 فرم ثبت‌نام دانش‌آموز جدید")
         cursor = conn.cursor()
         cursor.execute("SELECT class_name FROM classes")
         classes = [r[0] for r in cursor.fetchall()]
@@ -616,77 +555,78 @@ else:
             reg_no = st.text_input("آی‌دی *")
             reg_name = st.text_input("نام کامل *")
             reg_father = st.text_input("نام پدر *")
+            reg_gfather = st.text_input("نام پدرکلان")
             reg_class = st.selectbox("صنف", classes)
             reg_fee = st.number_input("شهریه", value=1000.0)
             reg_date = st.text_input("تاریخ", value=jdatetime.date.today().strftime("%Y/%m/%d"))
 
-            if st.form_submit_button("ثبت"):
+            if st.form_submit_button("ثبت نهایی"):
                 if reg_no and reg_name and reg_father:
-                    cursor.execute("INSERT INTO students (student_no, full_name, father_name, grandfather_name, class_name, standard_fee, status, registration_date) VALUES (?, ?, ?, '', ?, ?, 'فعال', ?)",
-                                   (reg_no, reg_name, reg_father, reg_class, reg_fee, reg_date))
+                    cursor.execute("INSERT INTO students (student_no, full_name, father_name, grandfather_name, class_name, standard_fee, status, registration_date) VALUES (?, ?, ?, ?, ?, ?, 'فعال', ?)",
+                                   (reg_no, reg_name, reg_father, reg_gfather, reg_class, reg_fee, reg_date))
                     conn.commit()
-                    st.success("ثبت شد.")
+                    st.success("شاگرد با موفقیت ثبت شد.")
 
-    elif menu == "📝 حاضری":
-        st.title("📋 حاضری")
+    elif menu == "📝 حاضری روزانه":
+        st.title("📋 ثبت حضور و غیاب")
         cursor = conn.cursor()
         cursor.execute("SELECT class_name FROM classes")
         classes = [r[0] for r in cursor.fetchall()]
-        sel_c = st.selectbox("صنف", classes)
+        sel_c = st.selectbox("انتخاب صنف", classes)
         att_d = st.text_input("تاریخ", value=jdatetime.date.today().strftime("%Y/%m/%d"))
         cursor.execute("SELECT student_id, full_name, father_name FROM students WHERE class_name=? AND status='فعال'", (sel_c,))
         st_list = cursor.fetchall()
         if st_list:
             with st.form("a_form"):
                 for s_id, name, father in st_list:
-                    st.selectbox(f"{name} ({father})", ["حاضر ✅", "غیرحاضر ❌"], key=f"a_{s_id}")
+                    st.selectbox(f"{name} (پدر: {father})", ["حاضر ✅", "غیرحاضر ❌"], key=f"a_{s_id}")
                 if st.form_submit_button("ذخیره حاضری"):
-                    st.success("ذخیره شد.")
+                    st.success("حاضری ثبت شد.")
 
-    elif menu == "⭐ ارزیابی":
-        st.title("⭐ ارزیابی")
+    elif menu == "⭐ ارزیابی ماهانه":
+        st.title("⭐ ارزیابی ماهانه شاگردان")
         st.info("بخش ارزیابی فعال است.")
 
-    elif menu == "👨‍🏫 پرسنل":
-        st.title("👨‍🏫 پرسنل")
+    elif menu == "👨‍🏫 پرسنل و استادان":
+        st.title("👨‍🏫 پرسنل و استادان")
         cursor = conn.cursor()
         cursor.execute("SELECT staff_no, full_name, role_type, salary FROM staff")
-        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["شناسه", "نام", "وظیفه", "معاش"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["شناسه", "نام کامل", "وظیفه", "معاش"]), use_container_width=True)
 
-    elif menu == "💸 مصارف":
-        st.title("💸 مصارف")
+    elif menu == "💸 ثبت مصارف مکتب":
+        st.title("💸 ثبت مصارف")
         cursor = conn.cursor()
         cursor.execute("SELECT date, category, amount, description FROM cashbox WHERE type='Outflow'")
-        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "دسته", "مبلغ", "توضیحات"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "دسته‌بندی", "مبلغ", "توضیحات"]), use_container_width=True)
 
-    elif menu == "🔍 پرونده‌ها":
-        st.title("🔍 جستجو")
-        q = st.text_input("نام یا آی‌دی:")
+    elif menu == "🔍 لیست کلی پرونده‌ها":
+        st.title("🔍 جستجو و لیست کامل پرونده‌ها")
+        q = st.text_input("جستجوی کلمه‌ای:")
         cursor = conn.cursor()
         cursor.execute("SELECT student_no, full_name, father_name, class_name FROM students WHERE full_name LIKE ? OR student_no LIKE ?", (f"%{q}%", f"%{q}%"))
-        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["آی‌دی", "نام", "پدر", "صنف"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["آی‌دی", "نام کامل", "نام پدر", "صنف"]), use_container_width=True)
 
-    elif menu == "📈 گزارشات":
-        st.title("📈 گزارشات")
+    elif menu == "📈 گزارش‌گیری":
+        st.title("📈 گزارش‌گیری پیشرفته")
         cursor = conn.cursor()
         cursor.execute("SELECT student_no, full_name, class_name, registration_date FROM students")
-        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["آی‌دی", "نام", "صنف", "تاریخ"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["آی‌دی", "نام کامل", "صنف", "تاریخ ثبت‌نام"]), use_container_width=True)
 
-    elif menu == "💰 صندوق":
-        st.title("💰 صندوق")
+    elif menu == "💰 مدیریت صندوق":
+        st.title("💰 گردش مالی صندوق")
         cursor = conn.cursor()
         cursor.execute("SELECT date, type, category, amount, description FROM cashbox")
-        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "نوع", "دسته", "مبلغ", "توضیحات"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "نوع", "دسته‌بندی", "مبلغ", "توضیحات"]), use_container_width=True)
 
     elif menu == "⚙️ تنظیمات":
-        st.title("⚙️ تنظیمات")
-        st.success("فعال است.")
+        st.title("⚙️ تنظیمات سیستم")
+        st.success("تنظیمات فعال است.")
 
     elif menu == "💬 چت آنلاین":
-        st.title("💬 چت")
+        st.title("💬 گفتگوی آنلاین")
         cursor = conn.cursor()
         with st.form("c_form", clear_on_submit=True):
-            msg = st.text_area("پیام:")
+            msg = st.text_area("ارسال پیام:")
             if st.form_submit_button("ارسال") and msg.strip():
                 t_str = jdatetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S")
                 cursor.execute("INSERT INTO chat_messages (sender_name, sender_role, message, timestamp) VALUES (?, ?, ?, ?)",
@@ -701,7 +641,7 @@ else:
                 st.write(m_text)
 
     elif menu == "📖 راهنما":
-        st.title("📖 راهنما")
-        st.markdown("سیستم مدیریت مکتب خصوصی کاوشگران دانش بلخ")
+        st.title("📖 راهنمای استفاده")
+        st.write("سیستم مدیریت مالی و اداری مکتب خصوصی کاوشگران دانش بلخ.")
 
     conn.close()
