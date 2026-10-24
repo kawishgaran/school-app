@@ -17,6 +17,126 @@ st.set_page_config(
 
 DB_FILE = "school_finance.db"
 
+# ==================== استایل‌دهی سفارشی (CSS) دقیقاً مطابق تصاویر ====================
+st.markdown("""
+<style>
+    @import url('https://v1.fontapi.ir/css/Vazir');
+    
+    html, body, [class*="css"] {
+        font-family: 'Vazir', sans-serif !important;
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* هدر بالای صفحه */
+    .header-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #ffffff;
+        padding: 12px 25px;
+        border-bottom: 1px solid #eee;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    
+    .header-logo {
+        font-size: 22px;
+        font-weight: bold;
+        color: #12b8b2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .nav-items {
+        display: flex;
+        gap: 18px;
+        font-size: 14px;
+        color: #333;
+        font-weight: 500;
+    }
+
+    /* بخش Hero Banner تیره مطابق تصویر dd.JPG */
+    .hero-banner {
+        background: linear-gradient(rgba(10, 25, 47, 0.85), rgba(10, 25, 47, 0.85)), 
+                    url('https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1600&auto=format&fit=crop');
+        background-size: cover;
+        background-position: center;
+        padding: 50px 35px;
+        border-radius: 12px;
+        color: #ffffff;
+        margin-bottom: 25px;
+    }
+    
+    .hero-sub {
+        color: #12b8b2;
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+    
+    .hero-title {
+        font-size: 30px;
+        font-weight: 900;
+        margin-bottom: 10px;
+        color: #ffffff;
+    }
+    
+    .hero-desc {
+        color: #cccccc;
+        font-size: 14px;
+    }
+
+    /* کارت‌های معرفی اعضا مطابق تصویر fff.JPG */
+    .member-card {
+        background-color: #ffffff;
+        border-radius: 16px;
+        padding: 12px 18px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.04);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        border: 1px solid #f0f0f0;
+    }
+    
+    .member-icon {
+        width: 42px;
+        height: 42px;
+        background: linear-gradient(135deg, #e91e63, #ff6090);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+    }
+    
+    .member-info {
+        text-align: right;
+    }
+    
+    .member-name {
+        font-weight: bold;
+        color: #333333;
+        font-size: 14px;
+    }
+    
+    .member-role {
+        color: #888888;
+        font-size: 12px;
+    }
+
+    .stButton>button {
+        background-color: #12b8b2 !important;
+        color: white !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # ==================== ایجاد و مقداردهی اولیه دیتابیس ====================
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -183,6 +303,17 @@ def init_db():
             category_name TEXT UNIQUE NOT NULL
         )
     ''')
+
+    # جدول چت آنلاین
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_name TEXT NOT NULL,
+            sender_role TEXT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp TEXT NOT NULL
+        )
+    ''')
     
     # درج کاربران پیش‌فرض در صورت عدم وجود
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -335,23 +466,28 @@ if not st.session_state.logged_in:
                 st.error("نام کاربری یا رمز عبور اشتباه است!")
 else:
     st.sidebar.markdown(f"👤 کاربر فعال: **{st.session_state.user_name}** ({st.session_state.user_role})")
-    menu = st.sidebar.selectbox(
-        "📌 منوی اصلی سیستم",
-        [
-            "📊 داشبورد", 
-            "➕ ثبت‌نام جدید", 
-            "📝 حاضری شاگردان", 
-            "⭐ ارزیابی شاگردان", 
-            "👨‍🏫 پرسنل و استادان", 
-            "💸 ثبت مصارف مکتب", 
-            "🔍 جستجو و پرونده شاگردان", 
-            "📈 گزارش‌گیری پیشرفته", 
-            "💰 مدیریت صندوق", 
-            "👥 مدیریت کاربران سیستم",
-            "⚙️ تنظیمات سیستم",
-            "📖 راهنما و کلیدهای میانبر"
-        ]
-    )
+    
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "📊 داشبورد"
+
+    menu_options = [
+        "📊 داشبورد", 
+        "➕ ثبت‌نام جدید", 
+        "📝 حاضری شاگردان", 
+        "⭐ ارزیابی شاگردان", 
+        "👨‍🏫 پرسنل و استادان", 
+        "💸 ثبت مصارف مکتب", 
+        "🔍 جستجو و پرونده شاگردان", 
+        "📈 گزارش‌گیری پیشرفته", 
+        "💰 مدیریت صندوق", 
+        "👥 مدیریت کاربران سیستم",
+        "⚙️ تنظیمات سیستم",
+        "💬 چت آنلاین مدیر و کاربران",
+        "📖 راهنما و کلیدهای میانبر"
+    ]
+    
+    menu = st.sidebar.selectbox("📌 منوی اصلی سیستم", menu_options, index=menu_options.index(st.session_state.current_page) if st.session_state.current_page in menu_options else 0)
+    st.session_state.current_page = menu
     
     if st.sidebar.button("🚪 خروج از سیستم"):
         st.session_state.logged_in = False
@@ -361,13 +497,36 @@ else:
 
     conn = sqlite3.connect(DB_FILE)
 
-    # ==================== ۱. داشبورد ====================
+    # ==================== ۱. داشبورد (طراحی صفحه اصلی دقیقاً مطابق تصویر) ====================
     if menu == "📊 داشبورد":
-        st.title("📊 داشبورد مدیریتی مکتب خصوصی کاوشگران دانش بلخ")
+        # هدر بالای صفحه
+        st.markdown("""
+        <div class="header-nav">
+            <div class="header-logo">
+                🏫 مکتب خصوصی کاوشگران دانش بلخ
+            </div>
+            <div class="nav-items">
+                <span>صفحه اصلی</span>
+                <span>معرفی و ارتباطات ▾</span>
+                <span>دروس آنلاین ▾</span>
+                <span>بخش گزارشات</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # بنر اصلی Hero Section (مطابق تصویر)
+        st.markdown("""
+        <div class="hero-banner">
+            <div class="hero-sub">بیشتر از مکتب</div>
+            <div class="hero-title">آموزش تنها به مکتب خلاصه نمیشود</div>
+            <div class="hero-desc">سامانه آنلاین مدیریت مالی، حضور و غیاب، ارزیابی و گزارش‌گیری مکتب خصوصی کاوشگران دانش بلخ</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         cursor = conn.cursor()
         
         cursor.execute("SELECT COUNT(*) FROM students WHERE status='فعال'")
-        s_count = cursor.fetchone()[0]
+        s_count = cursor.fetchone()[0] or 0
         
         cursor.execute("SELECT SUM(amount) FROM cashbox WHERE type='Inflow'")
         inflow = cursor.fetchone()[0] or 0
@@ -387,6 +546,79 @@ else:
         col1.metric("دانش‌آموزان فعال", f"{s_count} نفر")
         col2.metric("موجودی فعلی صندوق", f"{total_cash:,.2f} افغانی")
         col3.metric("مجموع باقی‌داری‌ها", f"{total_debts:,.2f} افغانی")
+
+        st.markdown("---")
+        
+        # بخش معرفی کادر آموزشی و پرسنل (مطابق با استایل تصویر fff.JPG)
+        st.markdown("<p style='color:#e91e63; font-weight:bold; margin-bottom:2px;'>معرفی اعضا</p>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top:0px;'>در مورد پرسنل و همکلاسی بیشتر بدانید</h3>", unsafe_allow_html=True)
+        st.write("")
+
+        col_m1, col_m2 = st.columns(2)
+        
+        with col_m1:
+            st.markdown("""
+            <div class="member-card">
+                <div class="member-info">
+                    <div class="member-name">عالمه یزدان‌پناه</div>
+                    <div class="member-role">معلم هنر</div>
+                </div>
+                <div class="member-icon">👤</div>
+            </div>
+            <div class="member-card">
+                <div class="member-info">
+                    <div class="member-name">تهمینه چیتگر</div>
+                    <div class="member-role">معلم ریاضی</div>
+                </div>
+                <div class="member-icon">👤</div>
+            </div>
+            <div class="member-card">
+                <div class="member-info">
+                    <div class="member-name">پریسا نصرت‌پور</div>
+                    <div class="member-role">معلم ورزش</div>
+                </div>
+                <div class="member-icon">👤</div>
+            </div>
+            <div class="member-card">
+                <div class="member-info">
+                    <div class="member-name">فاطمه السادات حسینی</div>
+                    <div class="member-role">معاون پرورشی</div>
+                </div>
+                <div class="member-icon">👤</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_m2:
+            st.markdown("""
+            <div class="member-card">
+                <div class="member-info">
+                    <div class="member-name">زهره خدادوست</div>
+                    <div class="member-role">معلم فارسی</div>
+                </div>
+                <div class="member-icon">👤</div>
+            </div>
+            <div class="member-card">
+                <div class="member-info">
+                    <div class="member-name">الهه غفاری</div>
+                    <div class="member-role">معاون آموزشی</div>
+                </div>
+                <div class="member-icon">👤</div>
+            </div>
+            <div class="member-card">
+                <div class="member-info">
+                    <div class="member-name">مریم شاپوری</div>
+                    <div class="member-role">معلم علوم</div>
+                </div>
+                <div class="member-icon">👤</div>
+            </div>
+            <div class="member-card">
+                <div class="member-info">
+                    <div class="member-name">سارا همتی</div>
+                    <div class="member-role">مدیریت مدرسه</div>
+                </div>
+                <div class="member-icon">👤</div>
+            </div>
+            """, unsafe_allow_html=True)
 
         st.markdown("---")
         st.subheader("💵 تنظیم تراز دستی صندوق")
@@ -512,7 +744,7 @@ else:
                         if ex:
                             cursor.execute("UPDATE attendance SET status = ? WHERE attendance_id = ?", (status, ex[0]))
                         else:
-                            cursor.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)", (s_id, date_str if 'date_str' in locals() else att_date, status))
+                            cursor.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)", (s_id, att_date, status))
                     conn.commit()
                     st.success("حاضری امروز با موفقیت ثبت شد.")
         else:
@@ -984,7 +1216,43 @@ else:
                     except:
                         st.error("این دسته‌بندی قبلاً ثبت شده است.")
 
-    # ==================== ۱۲. راهنما ====================
+    # ==================== ۱۲. چت آنلاین مدیر و کاربران ====================
+    elif menu == "💬 چت آنلاین مدیر و کاربران":
+        st.title("💬 اتاق گفتگوی آنلاین مدیر و کاربران سیستم")
+        st.markdown("ارتباط آنلاین و پیام‌رسانی لحظه‌ای میان مدیریت و کاربران")
+
+        cursor = conn.cursor()
+
+        with st.form("chat_form", clear_on_submit=True):
+            user_msg = st.text_area("✍️ پیام خود را بنویسید:", height=100)
+            send_btn = st.form_submit_button("📤 ارسال پیام")
+            
+            if send_btn and user_msg.strip():
+                now_str = jdatetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S")
+                cursor.execute("""
+                    INSERT INTO chat_messages (sender_name, sender_role, message, timestamp) 
+                    VALUES (?, ?, ?, ?)
+                """, (st.session_state.user_name, st.session_state.user_role, user_msg.strip(), now_str))
+                conn.commit()
+                st.success("پیام ارسال شد.")
+                st.rerun()
+
+        st.markdown("---")
+        st.subheader("📬 تاریخچه پیام‌ها")
+
+        cursor.execute("SELECT sender_name, sender_role, message, timestamp FROM chat_messages ORDER BY message_id DESC")
+        messages = cursor.fetchall()
+
+        if messages:
+            for msg in messages:
+                s_name, s_role, m_text, m_time = msg
+                with st.chat_message("user" if s_role == "Admin" else "assistant"):
+                    st.write(f"**{s_name}** ({s_role}) - *{m_time}*")
+                    st.write(m_text)
+        else:
+            st.info("هنوز پیامی ارسال نشده است.")
+
+    # ==================== ۱۳. راهنما ====================
     elif menu == "📖 راهنما و کلیدهای میانبر":
         st.title("📖 راهنمای جامع سیستم مدیریت مالی مکتب")
         st.markdown("""
@@ -992,13 +1260,14 @@ else:
         این سیستم به عنوان نسخه کامل وب جهت دسترسی آنلاین و همزمان چند کاربر طراحی شده است.
 
         #### 📋 راهنمای بخش‌ها:
-        1. **داشبورد:** مشاهده لحظه‌ای آمار شاگردان، تراز صندوق و مجموع طلبات مکتب.
+        1. **داشبورد:** مشاهده لحظه‌ای آمار شاگردان، تراز صندوق و مجموع طلبات مکتب به همراه معرفی اعضا.
         2. **ثبت‌نام جدید:** فرم چندبخشی شامل اطلاعات شخصی، خدمات ترانسپورت، کتاب و لباس.
         3. **حاضری روزانه:** ثبت وضعیت حضور بر اساس صنف به همراه نمایش سوابق ثبت‌شده.
         4. **ارزیابی اتوماتیک:** سهمیه‌بندی دقیق بر اساس ۲۶ روز کاری ماه بدون احتساب روزهای جمعه.
         5. **پرونده شاگردان:** نمایش کامل ریز حساب، دریافت فیس، مرخصی (Break)، آمار حضور و غیاب و ویرایش کامل مشخصات.
         6. **پرسنل و استادان:** محاسبه کامل حقوق معوقه بر اساس ماه‌های کارکرد و ثبت پرداختی‌ها.
         7. **ثبت مصارف:** ثبت هزینه‌های روزانه همراه با کسر خودکار از دخل/صندوق.
+        8. **چت آنلاین:** ارتباط زنده بین مدیر کل و سایر کاربران سیستم.
         """)
 
     conn.close()
