@@ -7,15 +7,14 @@ import jdatetime
 import math
 import pandas as pd
 
-# ==================== تنظیمات اصلی صفحه وب و استایل RTL ====================
+# ==================== تنظیمات صفحه و استایل مشابه ورد (Ribbon Menu RTL) ====================
 st.set_page_config(
     page_title="مکتب خصوصی کاوشگران دانش بلخ",
     page_icon="🏫",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# اعمال استایل‌های سراسری برای راست به چپ (RTL) کردن تمام بخش‌های برنامه
 st.markdown("""
     <style>
         /* راست‌چین کردن کل بدنه و عناصر صفحه */
@@ -24,20 +23,15 @@ st.markdown("""
             text-align: right;
             font-family: Tahoma, Arial, sans-serif;
         }
-        /* راست‌چین کردن منوی کناری (Sidebar) */
-        [data-testid="stSidebar"] {
+        
+        /* استایل ظاهری برای شبیه‌سازی نوار ابزار ورد */
+        .word-ribbon {
+            background-color: #f3f3f3;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #dcdcdc;
+            margin-bottom: 20px;
             direction: rtl;
-            text-align: right;
-        }
-        /* تنظیم موقعیت لیبل‌ها و اینپوت‌ها */
-        .stTextInput, .stNumberInput, .stSelectbox, .stDateInput {
-            direction: rtl;
-            text-align: right;
-        }
-        /* تنظیم جدول‌ها */
-        dataframe, table {
-            direction: rtl;
-            text-align: right;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -49,7 +43,6 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # جدول کاربران سیستم
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +53,6 @@ def init_db():
         )
     ''')
     
-    # جدول دانش‌آموزان
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS students (
             student_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,7 +84,6 @@ def init_db():
         )
     ''')
 
-    # جدول مرخصی‌ها / Break
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS student_breaks (
             break_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +95,6 @@ def init_db():
         )
     ''')
 
-    # جدول حضور و غیاب
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance (
             attendance_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,7 +105,6 @@ def init_db():
         )
     ''')
 
-    # جدول ارزیابی‌های ماهانه/روزانه
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS evaluations (
             evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -132,7 +121,6 @@ def init_db():
         )
     ''')
 
-    # جدول پرسنل و کارمندان
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS staff (
             staff_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,7 +133,6 @@ def init_db():
         )
     ''')
 
-    # جدول پرداختی‌های حقوق پرسنل
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS staff_payments (
             payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -159,7 +146,6 @@ def init_db():
         )
     ''')
 
-    # جدول پرداختی‌های دریافتی از دانش‌آموزان
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS student_payments (
             payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,7 +160,6 @@ def init_db():
         )
     ''')
     
-    # جدول صندوق مالی (تراکنش‌های ورود و خروج)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cashbox (
             transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -187,7 +172,6 @@ def init_db():
         )
     ''')
 
-    # تنظیمات عمومی
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -195,7 +179,6 @@ def init_db():
         )
     ''')
 
-    # جدول صنف‌ها
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS classes (
             class_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -203,7 +186,6 @@ def init_db():
         )
     ''')
 
-    # جدول دسته‌بندی مصارف
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS expense_categories (
             category_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -211,20 +193,17 @@ def init_db():
         )
     ''')
     
-    # درج کاربران پیش‌فرض در صورت عدم وجود
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO users (username, password, full_name, role) VALUES ('admin', 'admin123', 'مدیر کل سیستم', 'Admin')")
         cursor.execute("INSERT INTO users (username, password, full_name, role) VALUES ('finance', 'finance123', 'مدیر مالی', 'Financial_Manager')")
 
-    # درج صنف‌های پیش‌فرض
     cursor.execute("SELECT COUNT(*) FROM classes")
     if cursor.fetchone()[0] == 0:
         default_classes = ["صنف اول", "صنف دوم", "صنف سوم", "صنف چهارم", "صنف پنجم", "صنف ششم", "صنف هفتم", "صنف هشتم", "صنف نهم", "صنف دهم", "صنف یازدهم", "صنف دوازدهم", "آمادگی"]
         for c in default_classes:
             cursor.execute("INSERT OR IGNORE INTO classes (class_name) VALUES (?)", (c,))
 
-    # درج دسته‌بندی‌های پیش‌فرض مصارف
     cursor.execute("SELECT COUNT(*) FROM expense_categories")
     if cursor.fetchone()[0] == 0:
         default_cats = ["خرید وسایل و تجهیزات", "ترمیم وسایط و موترها", "مصارف برق و آب", "لوازم‌التحریر", "سایر مصارف"]
@@ -236,7 +215,7 @@ def init_db():
 
 init_db()
 
-# ==================== توابع محاسباتی و کمکی ریاضی/شمسی ====================
+# ==================== توابع محاسباتی و کمکی ====================
 def parse_shamsi_date(date_str):
     try:
         clean_str = str(date_str).replace('-', '/').strip()
@@ -358,9 +337,19 @@ if not st.session_state.logged_in:
             else:
                 st.error("نام کاربری یا رمز عبور اشتباه است!")
 else:
-    st.sidebar.markdown(f"👤 کاربر فعال: **{st.session_state.user_name}** ({st.session_state.user_role})")
-    menu = st.sidebar.selectbox(
-        "📌 منوی اصلی سیستم",
+    # ==================== طراحی نوار ابزار افقی (مانند ورد آفیس) در بالای صفحه ====================
+    st.markdown('<div class="word-ribbon">', unsafe_allow_html=True)
+    
+    c_info, c_logout = st.columns([6, 1])
+    c_info.markdown(f"👤 کاربر فعال: **{st.session_state.user_name}** ({st.session_state.user_role})")
+    if c_logout.button("🚪 خروج"):
+        st.session_state.logged_in = False
+        st.session_state.user_name = ""
+        st.session_state.user_role = ""
+        st.rerun()
+
+    menu = st.selectbox(
+        "📌 منوی اصلی سیستم (نوار ابزار)",
         [
             "📊 داشبورد", 
             "➕ ثبت‌نام جدید", 
@@ -376,12 +365,7 @@ else:
             "📖 راهنما و کلیدهای میانبر"
         ]
     )
-    
-    if st.sidebar.button("🚪 خروج از سیستم"):
-        st.session_state.logged_in = False
-        st.session_state.user_name = ""
-        st.session_state.user_role = ""
-        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
     conn = sqlite3.connect(DB_FILE)
 
@@ -722,18 +706,15 @@ else:
                     st.success("مصرف حذف و مبلغ به صندوق بازگشت.")
                     st.rerun()
 
-    # ==================== ۷. جستجو و پرونده شاگردان (توسعه‌یافته با نام پدر و دکمه نمایش پرونده) ====================
+    # ==================== ۷. جستجو و پرونده شاگردان (همراه با نام شاگرد و نام پدر + دکمه نمایش پرونده) ====================
     elif menu == "🔍 جستجو و پرونده شاگردان":
         st.title("🔍 جستجو و پرونده مالی و اداری جامع دانش‌آموز")
         
         cursor = conn.cursor()
-        
-        # دریافت کل لیست شاگردان برای ساخت لیست پیشنهادی بر اساس نام شاگرد + نام پدر
         cursor.execute("SELECT student_id, student_no, full_name, father_name FROM students WHERE status='فعال'")
         all_students = cursor.fetchall()
         
         if all_students:
-            # ایجاد دیکشنری و لیست گزینه‌ها بر اساس درخواست (نام شاگرد همراه با نام پدر)
             student_options = {}
             for s_id, s_no, s_name, s_father in all_students:
                 display_label = f"{s_name} - نام پدر: {s_father} (آی‌دی: {s_no})"
@@ -742,12 +723,10 @@ else:
             st.markdown("##### 📌 جستجو و انتخاب شاگرد از طریق پیشنهاد نام و نام پدر")
             selected_label = st.selectbox("شاگرد مورد نظر را جستجو یا انتخاب کنید:", options=list(student_options.keys()))
             
-            # دکمه برای نمایش پرونده شاگرد انتخابی
             if st.button("📂 نمایش پرونده شاگرد"):
                 if selected_label:
                     st.session_state.selected_student_id = student_options[selected_label]
             
-            # اگر شاگردی انتخاب شده باشد یا از طریق دکمه هدایت شده باشد، پرونده او را لود می‌کنیم
             target_id = st.session_state.get("selected_student_id", None)
             
             if target_id:
@@ -776,7 +755,6 @@ else:
 
                         tab_pay, tab_break, tab_att, tab_eval, tab_edit = st.tabs(["💳 دریافت فیس", "📌 عدم حضور (Break)", "📊 حضور و غیاب", "⭐ سوابق ارزیابی", "✏️ ویرایش شاگرد"])
 
-                        # دریافت فیس
                         with tab_pay:
                             with st.form(f"pay_form_{s_id}"):
                                 fee_type = st.selectbox("نوع فیس / بدهی", ["شهریه ماه جاری", "باقی‌داری قبلی", "ترانسپورت", "کتاب", "لباس", "پیش‌پرداخت / بستانکاری"], key=f"ft_{s_id}")
@@ -812,7 +790,6 @@ else:
                                         st.success("تراکنش حذف شد و حساب‌ها به‌روزرسانی شدند.")
                                         st.rerun()
 
-                        # ثبت و مدیریت Break
                         with tab_break:
                             with st.form(f"break_form_{s_id}"):
                                 b_start = st.text_input("از تاریخ/ماه (مثلاً 1405/02/01)", key=f"bs_{s_id}")
@@ -839,7 +816,6 @@ else:
                                     st.success("مرخصی حذف گردید.")
                                     st.rerun()
 
-                        # آمار حضور و غیاب
                         with tab_att:
                             cursor.execute("SELECT status, COUNT(*) FROM attendance WHERE student_id = ? GROUP BY status", (s_id,))
                             att_stats = {r[0]: r[1] for r in cursor.fetchall()}
@@ -852,13 +828,11 @@ else:
                             df_att = pd.DataFrame(cursor.fetchall(), columns=["شناسه", "تاریخ", "وضعیت"])
                             st.dataframe(df_att, use_container_width=True)
 
-                        # ارزیابی‌ها
                         with tab_eval:
                             cursor.execute("SELECT evaluation_id, date, notebook_check, diary_check, dictation, learning_level, homework, other_cases, total_score FROM evaluations WHERE student_id = ? ORDER BY evaluation_id DESC", (s_id,))
                             df_ev = pd.DataFrame(cursor.fetchall(), columns=["شناسه", "تاریخ", "کتابچه", "دایری", "املا", "یادگیری", "خانگی", "سایر", "مجموع (از ۱۲)"])
                             st.dataframe(df_ev, use_container_width=True)
 
-                        # ویرایش مشخصات
                         with tab_edit:
                             with st.form(f"edit_st_form_{s_id}"):
                                 e_no = st.text_input("آی‌دی", value=str(no), key=f"eno_{s_id}")
