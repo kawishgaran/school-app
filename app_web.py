@@ -17,6 +17,69 @@ st.set_page_config(
 
 DB_FILE = "school_finance.db"
 
+# ==================== استایل‌دهی کامل راست‌به‌چپ (RTL) و فارسی‌سازی ====================
+st.markdown("""
+<style>
+    @import url('https://v1.fontapi.ir/css/Vazir');
+    
+    /* تنظیم فونت و جهت کلی صفحه */
+    html, body, [class*="css"], [class*="st-"], div, span, p, h1, h2, h3, h4, h5, h6 {
+        font-family: 'Vazir', sans-serif !important;
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* راست‌چین کردن نوار کناری (Sidebar) */
+    section[data-testid="stSidebar"] {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    section[data-testid="stSidebar"] > div {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* راست‌چین کردن ورودی‌ها، کادرهای متن و انتخابگرها */
+    .stTextInput>div>div>input, 
+    .stSelectbox>div>div, 
+    .stNumberInput>div>div>input,
+    .stTextArea>div>div>textarea,
+    .stMultiSelect>div>div {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* تنظیمات متون جدوال */
+    .stDataFrame, .stTable {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* استایل دکمه‌ها */
+    .stButton>button {
+        background-color: #0d47a1 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        width: 100%;
+        font-weight: bold;
+        padding: 8px;
+    }
+    .stButton>button:hover {
+        background-color: #1565c0 !important;
+    }
+
+    /* باکس برجسته جستجوی بالای صفحه */
+    .global-search-container {
+        background-color: #f0f4f9;
+        padding: 15px;
+        border-radius: 12px;
+        border-right: 5px solid #0d47a1;
+        margin-bottom: 25px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # ==================== ایجاد و مقداردهی اولیه دیتابیس ====================
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -314,6 +377,9 @@ if 'logged_in' not in st.session_state:
     st.session_state.user_name = ""
     st.session_state.user_role = ""
 
+if 'selected_student_id' not in st.session_state:
+    st.session_state.selected_student_id = None
+
 if not st.session_state.logged_in:
     st.title("🏫 ورود به سیستم - مکتب خصوصی کاوشگران دانش بلخ")
     with st.form("login_form"):
@@ -335,31 +401,72 @@ if not st.session_state.logged_in:
                 st.error("نام کاربری یا رمز عبور اشتباه است!")
 else:
     st.sidebar.markdown(f"👤 کاربر فعال: **{st.session_state.user_name}** ({st.session_state.user_role})")
-    menu = st.sidebar.selectbox(
-        "📌 منوی اصلی سیستم",
-        [
-            "📊 داشبورد", 
-            "➕ ثبت‌نام جدید", 
-            "📝 حاضری شاگردان", 
-            "⭐ ارزیابی شاگردان", 
-            "👨‍🏫 پرسنل و استادان", 
-            "💸 ثبت مصارف مکتب", 
-            "🔍 جستجو و پرونده شاگردان", 
-            "📈 گزارش‌گیری پیشرفته", 
-            "💰 مدیریت صندوق", 
-            "👥 مدیریت کاربران سیستم",
-            "⚙️ تنظیمات سیستم",
-            "📖 راهنما و کلیدهای میانبر"
-        ]
-    )
+    
+    # تعیین منوی پیش‌فرض (در صورت کلیک روی دکمه هدایت به پرونده)
+    default_menu_idx = 0
+    if st.session_state.get('navigate_to_profile', False):
+        default_menu_idx = 6 # ایندکس بخش "🔍 جستجو و پرونده شاگردان"
+        st.session_state['navigate_to_profile'] = False
+
+    menu_list = [
+        "📊 داشبورد", 
+        "➕ ثبت‌نام جدید", 
+        "📝 حاضری شاگردان", 
+        "⭐ ارزیابی شاگردان", 
+        "👨‍🏫 پرسنل و استادان", 
+        "💸 ثبت مصارف مکتب", 
+        "🔍 جستجو و پرونده شاگردان", 
+        "📈 گزارش‌گیری پیشرفته", 
+        "💰 مدیریت صندوق", 
+        "👥 مدیریت کاربران سیستم",
+        "⚙️ تنظیمات سیستم",
+        "📖 راهنما و کلیدهای میانبر"
+    ]
+
+    menu = st.sidebar.selectbox("📌 منوی اصلی سیستم", menu_list, index=default_menu_idx)
     
     if st.sidebar.button("🚪 خروج از سیستم"):
         st.session_state.logged_in = False
         st.session_state.user_name = ""
         st.session_state.user_role = ""
+        st.session_state.selected_student_id = None
         st.rerun()
 
     conn = sqlite3.connect(DB_FILE)
+
+    # ==================== 🔎 باکس جستجوی سراسری در بالای صفحه اصلی ====================
+    st.markdown('<div class="global-search-container">', unsafe_allow_html=True)
+    st.markdown("##### 🔍 جستجوی سریع دانش‌آموز (بر اساس نام و نام پدر)")
+    
+    cursor = conn.cursor()
+    cursor.execute("SELECT student_id, student_no, full_name, father_name, class_name FROM students WHERE status='فعال'")
+    all_students_search = cursor.fetchall()
+
+    student_options = {"": None}
+    for s_item in all_students_search:
+        s_id, s_no, s_full, s_father, s_class = s_item
+        label = f"🎓 {s_full} | نام پدر: {s_father} | صنف: {s_class} (آی‌دی: {s_no})"
+        student_options[label] = s_id
+
+    col_s1, col_s2 = st.columns([3, 1])
+    with col_s1:
+        selected_label = st.selectbox(
+            "نام یا نام پدر شاگرد را تایپ یا انتخاب کنید:",
+            options=list(student_options.keys()),
+            key="global_search_box"
+        )
+    with col_s2:
+        st.write("") # فاصله عمودی
+        st.write("")
+        if st.button("📂 مشاهده پرونده شاگرد", key="btn_go_to_profile"):
+            chosen_id = student_options.get(selected_label)
+            if chosen_id:
+                st.session_state.selected_student_id = chosen_id
+                st.session_state['navigate_to_profile'] = True
+                st.rerun()
+            else:
+                st.warning("لطفاً ابتدا یک دانش‌آموز را انتخاب کنید.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # ==================== ۱. داشبورد ====================
     if menu == "📊 داشبورد":
@@ -512,7 +619,7 @@ else:
                         if ex:
                             cursor.execute("UPDATE attendance SET status = ? WHERE attendance_id = ?", (status, ex[0]))
                         else:
-                            cursor.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)", (s_id, date_str if 'date_str' in locals() else att_date, status))
+                            cursor.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)", (s_id, att_date, status))
                     conn.commit()
                     st.success("حاضری امروز با موفقیت ثبت شد.")
         else:
@@ -701,22 +808,29 @@ else:
     # ==================== ۷. جستجو و پرونده شاگردان ====================
     elif menu == "🔍 جستجو و پرونده شاگردان":
         st.title("🔍 جستجو و پرونده مالی و اداری جامع دانش‌آموز")
-        query = st.text_input("جستجو بر اساس نام یا آی‌دی شاگرد:")
         cursor = conn.cursor()
-        
-        if query:
+
+        # اگر از باکس بالای صفحه شاگردی انتخاب شده باشد، مستقیماً آن را بیاور
+        target_id = st.session_state.get('selected_student_id', None)
+
+        if target_id:
             cursor.execute('''
                 SELECT student_id, student_no, full_name, father_name, grandfather_name, class_name, standard_fee, is_free, 
                        uses_transport, transport_fee, father_phone, registration_date
-                FROM students WHERE full_name LIKE ? OR student_no LIKE ?
-            ''', (f"%{query}%", f"%{query}%"))
+                FROM students WHERE student_id = ?
+            ''', (target_id,))
+            students = cursor.fetchall()
         else:
             cursor.execute('''
                 SELECT student_id, student_no, full_name, father_name, grandfather_name, class_name, standard_fee, is_free, 
                        uses_transport, transport_fee, father_phone, registration_date
                 FROM students
             ''')
-        students = cursor.fetchall()
+            students = cursor.fetchall()
+
+        if target_id and st.button("🔄 نمایش همه شاگردان"):
+            st.session_state.selected_student_id = None
+            st.rerun()
 
         for st_row in students:
             s_id, no, name, father, gfather, cls, fee, is_free, uses_t, t_fee, fphone, reg_date = st_row
@@ -726,7 +840,7 @@ else:
 
             title_text = f"🎓 {name} {'(معاف/رایگان)' if is_free == 1 else ''} | صنف: {cls} | آی‌دی: {no} | باقی‌داری کل: {summary['net_debt']:,.2f} افغانی"
             
-            with st.expander(title_text):
+            with st.expander(title_text, expanded=(s_id == target_id)):
                 st.markdown(f"""
                 * **نام پدر (پدرکلان):** {father} ({gfather}) | **تلفن پدر:** {fphone} | **تاریخ ثبت‌نام:** {reg_date}
                 * **فیس ماهانه:** {summary['monthly_fee']:,.2f} افغانی | **ماه‌های فعال:** {summary['active_months']} ماه
