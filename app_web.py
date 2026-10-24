@@ -1,10 +1,9 @@
 import streamlit as st
 import sqlite3
 import jdatetime
-import math
 import pandas as pd
 
-# ==================== تنظیمات اصلی صفحه ====================
+# ==================== تنظیمات صفحه ====================
 st.set_page_config(
     page_title="مکتب خصوصی کاوشگران دانش بلخ",
     page_icon="🏫",
@@ -14,17 +13,34 @@ st.set_page_config(
 
 DB_FILE = "school_finance.db"
 
-# ==================== استایل‌دهی ساده و بدون تداخل برای موبایل ====================
+# ==================== راست‌چین‌سازی کامل و حرفه‌ای (RTL) ====================
 st.markdown("""
 <style>
     @import url('https://v1.fontapi.ir/css/Vazir');
     
-    html, body, [class*="css"] {
+    /* تنظیم کل صفحه به حالت راست‌چین و فونت وزیر */
+    html, body, [class*="css"], [class*="st-"] {
         font-family: 'Vazir', sans-serif !important;
-        direction: rtl;
-        text-align: right;
+        direction: rtl !important;
+        text-align: right !important;
     }
-    
+
+    /* راست‌چین کردن سایدبار (منوی سمت راست) */
+    section[data-testid="stSidebar"] {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* راست‌چین کردن تمامی باکس‌های ورودی، منوها و جداول */
+    .stTextInput>div>div>input, 
+    .stSelectbox>div>div, 
+    .stNumberInput>div>div>input,
+    .stTextArea>div>div>textarea {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* استایل دکمه‌ها */
     .stButton>button {
         background-color: #12b8b2 !important;
         color: white !important;
@@ -338,9 +354,8 @@ if not st.session_state.logged_in:
             else:
                 st.error("نام کاربری یا رمز عبور اشتباه است!")
 else:
-    # منوی منسجم سایدبار بدون تداخل
-    st.sidebar.title("📌 منوی اصلی")
-    st.sidebar.markdown(f"👤 کاربر: **{st.session_state.user_name}** ({st.session_state.user_role})")
+    # منوی سایدبار راست‌چین
+    st.sidebar.markdown(f"**کاربر فعال:** {st.session_state.user_name}")
     
     menu_options = [
         "🏠 صفحه اصلی (جستجوی شاگرد)", 
@@ -359,7 +374,7 @@ else:
         "📖 راهنما"
     ]
     
-    menu = st.sidebar.selectbox("انتخاب بخش:", menu_options)
+    menu = st.sidebar.selectbox("منوی سیستم:", menu_options)
     
     if st.sidebar.button("🚪 خروج از سیستم"):
         st.session_state.logged_in = False
@@ -369,10 +384,10 @@ else:
 
     conn = sqlite3.connect(DB_FILE)
 
-    # ==================== ۱. صفحه اصلی (جستجوی تک‌باکسی هوشمند) ====================
+    # ==================== ۱. صفحه اصلی (جستجوی شاگرد) ====================
     if menu == "🏠 صفحه اصلی (جستجوی شاگرد)":
         st.title("🏫 مکتب خصوصی کاوشگران دانش بلخ")
-        st.subheader("🔍 جستجوی هوشمند پرونده دانش‌آموز")
+        st.subheader("🔍 جستجوی پرونده دانش‌آموز")
 
         cursor = conn.cursor()
         cursor.execute("SELECT student_id, student_no, full_name, father_name, class_name FROM students WHERE status='فعال'")
@@ -383,11 +398,10 @@ else:
             display_str = f"{s_name} (پدر: {f_name} | صنف: {c_name} | آی‌دی: {s_no})"
             student_options[display_str] = s_id
 
-        # فقط یک باکس واحد جهت تایپ و انتخاب خودکار
         selected_display = st.selectbox(
-            "نام شاگرد یا نام پدر را در باکس زیر تایپ کنید:",
+            "نام شاگرد یا نام پدر را انتخاب/تایپ کنید:",
             options=[""] + list(student_options.keys()),
-            key="unique_search_box"
+            key="simple_search_box"
         )
 
         target_id = student_options.get(selected_display) if selected_display else None
@@ -408,27 +422,26 @@ else:
                 summary = get_student_financial_summary(s_id)
                 
                 if summary:
-                    st.markdown("---")
-                    st.header(f"📂 پرونده: {name}")
+                    st.divider()
+                    st.header(f"📋 پرونده: {name}")
                     
-                    # کارت مشخصات ساده، واضح و بدون شکستگی فونت
-                    c1, c2 = st.columns(2)
-                    with c1:
+                    col1, col2 = st.columns(2)
+                    with col1:
                         st.write(f"👤 **نام کامل:** {name} {'(معاف/رایگان)' if is_free == 1 else ''}")
                         st.write(f"👨 **نام پدر:** {father}")
                         st.write(f"👴 **نام پدرکلان:** {gfather}")
                         st.write(f"🏫 **صنف:** {cls}")
                         st.write(f"🆔 **آی‌دی:** {no}")
                         st.write(f"📅 **تاریخ ثبت‌نام:** {reg_date}")
-                    with c2:
+                    with col2:
                         st.write(f"📞 **تلفن پدر:** {fphone}")
                         st.write(f"📞 **تلفن مادر:** {mphone}")
                         st.write(f"💵 **شهریه ماهانه:** {summary['monthly_fee']:,.2f} افغانی")
                         st.write(f"📆 **ماه‌های فعال:** {summary['active_months']} ماه")
                         st.write(f"🔻 **باقی‌داری کل:** {summary['net_debt']:,.2f} افغانی")
-                        st.write(f"🟢 **پیش‌پرداخت/بستانکاری:** {summary['advance_pay']:,.2f} افغانی")
+                        st.write(f"🟢 **پیش‌پرداخت:** {summary['advance_pay']:,.2f} افغانی")
 
-                    st.markdown("---")
+                    st.divider()
                     tab_pay, tab_break, tab_att, tab_eval, tab_edit = st.tabs(["💳 دریافت فیس", "📌 مرخصی", "📊 حاضری", "⭐ ارزیابی", "✏️ ویرایش"])
 
                     with tab_pay:
@@ -444,13 +457,13 @@ else:
                                     cursor.execute("INSERT INTO cashbox (date, type, category, amount, description, user_name) VALUES (?, 'Inflow', ?, ?, ?, ?)",
                                                    (p_date, f"دریافت {fee_type}", p_amt, f"پرداخت شاگرد ID:{s_id}\n{p_desc}", st.session_state.user_name))
                                     conn.commit()
-                                    st.success("پرداخت ثبت شد.")
+                                    st.success("پرداخت با موفقیت ثبت شد.")
                                     st.rerun()
 
                         cursor.execute("SELECT payment_id, date, fee_type, amount, description, user_name FROM student_payments WHERE student_id = ?", (s_id,))
                         p_rows = cursor.fetchall()
                         if p_rows:
-                            st.write("📋 سوابق پرداختی‌های این شاگرد:")
+                            st.write("📋 سوابق پرداختی‌ها:")
                             st.dataframe(pd.DataFrame(p_rows, columns=["شناسه", "تاریخ", "نوع", "مبلغ", "توضیحات", "کاربر"]), use_container_width=True)
 
                     with tab_break:
@@ -495,7 +508,7 @@ else:
                                 st.success("اطلاعات بروزرسانی شد.")
                                 st.rerun()
 
-    # ==================== ۱۱. کاربران ====================
+    # ==================== ۱۱. کاربران سیستم ====================
     elif menu == "👥 کاربران سیستم":
         st.title("👥 مدیریت کاربران سیستم")
         
@@ -521,7 +534,7 @@ else:
                         except:
                             st.error("این نام کاربری قبلاً ثبت شده است.")
 
-            st.markdown("---")
+            st.divider()
             st.subheader("📋 لیست کاربران فعال")
             cursor = conn.cursor()
             cursor.execute("SELECT user_id, username, full_name, role FROM users")
@@ -600,8 +613,8 @@ else:
         st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["تاریخ", "دسته‌بندی", "مبلغ", "توضیحات"]), use_container_width=True)
 
     elif menu == "🔍 لیست کلی پرونده‌ها":
-        st.title("🔍 جستجو و لیست کامل پرونده‌ها")
-        q = st.text_input("جستجوی کلمه‌ای:")
+        st.title("🔍 لیست کلی پرونده‌ها")
+        q = st.text_input("جستجو:")
         cursor = conn.cursor()
         cursor.execute("SELECT student_no, full_name, father_name, class_name FROM students WHERE full_name LIKE ? OR student_no LIKE ?", (f"%{q}%", f"%{q}%"))
         st.dataframe(pd.DataFrame(cursor.fetchall(), columns=["آی‌دی", "نام کامل", "نام پدر", "صنف"]), use_container_width=True)
